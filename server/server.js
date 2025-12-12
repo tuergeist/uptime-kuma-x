@@ -2012,7 +2012,9 @@ async function pauseMonitor(userID, monitorID, tenantId = 1) {
 
     log.info("manage", `Pause Monitor: ${monitorID} User ID: ${userID}`);
 
-    await R.exec("UPDATE monitor SET active = 0 WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
+    // Use false instead of 0 for PostgreSQL boolean compatibility
+    await R.exec("UPDATE monitor SET active = ? WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
+        false,
         monitorID,
         userID,
         tenantId,
@@ -2020,7 +2022,7 @@ async function pauseMonitor(userID, monitorID, tenantId = 1) {
 
     if (monitorID in server.monitorList) {
         await server.monitorList[monitorID].stop();
-        server.monitorList[monitorID].active = 0;
+        server.monitorList[monitorID].active = false;
     }
 }
 

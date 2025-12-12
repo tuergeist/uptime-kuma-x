@@ -183,8 +183,10 @@ module.exports.statusPageSocketHandler = (socket) => {
             for (let group of publicGroupList) {
                 let groupBean;
                 if (group.id) {
-                    groupBean = await R.findOne("group", " id = ? AND public = 1 AND status_page_id = ? ", [
+                    // Use true instead of 1 for PostgreSQL boolean compatibility
+                    groupBean = await R.findOne("group", " id = ? AND public = ? AND status_page_id = ? ", [
                         group.id,
+                        true,
                         statusPage.id
                     ]);
                 } else {

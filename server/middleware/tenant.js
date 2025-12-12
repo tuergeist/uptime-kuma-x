@@ -141,7 +141,8 @@ async function resolveFromCustomDomain(req) {
     }
 
     // Look up in tenant_domain table
-    const domainRecord = await R.findOne("tenant_domain", " domain = ? AND verified = 1 ", [host]);
+    // Use true instead of 1 for PostgreSQL boolean comparison
+    const domainRecord = await R.findOne("tenant_domain", " domain = ? AND verified = ? ", [host, true]);
 
     if (!domainRecord) {
         log.debug("tenant", `No verified domain record for: ${host}`);

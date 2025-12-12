@@ -104,7 +104,9 @@ module.exports.apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Disabled Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("UPDATE api_key SET active = 0 WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
+            // Use false instead of 0 for PostgreSQL boolean compatibility
+            await R.exec("UPDATE api_key SET active = ? WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
+                false,
                 keyID,
                 socket.userID,
                 socket.tenantId || 1,

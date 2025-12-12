@@ -222,8 +222,9 @@ class StatusPage extends BeanModel {
         // Public Group List
         const showTags = !!statusPage.show_tags;
 
-        const list = await R.find("group", " public = 1 AND status_page_id = ? ORDER BY weight ", [
-            statusPage.id
+        // Use true instead of 1 for PostgreSQL boolean compatibility
+        const list = await R.find("group", " public = ? AND status_page_id = ? ORDER BY weight ", [
+            true, statusPage.id
         ]);
 
         let heartbeats = [];
@@ -279,8 +280,9 @@ class StatusPage extends BeanModel {
         const publicGroupList = [];
         const showTags = !!statusPage.show_tags;
 
-        const list = await R.find("group", " public = 1 AND status_page_id = ? ORDER BY weight ", [
-            statusPage.id
+        // Use true instead of 1 for PostgreSQL boolean compatibility
+        const list = await R.find("group", " public = ? AND status_page_id = ? ORDER BY weight ", [
+            true, statusPage.id
         ]);
 
         for (let groupBean of list) {

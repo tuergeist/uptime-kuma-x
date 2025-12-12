@@ -24,7 +24,8 @@ spec:
   tls:
     - hosts:
         - uptimehive.com
-        - "*.uptimehive.com"
+        - www.uptimehive.com
+        - app.uptimehive.com
       secretName: uptimehive-tls
   rules:
     - host: uptimehive.com
@@ -37,7 +38,17 @@ spec:
                 name: uptime-kuma
                 port:
                   number: 3001
-    - host: "*.uptimehive.com"
+    - host: www.uptimehive.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: uptime-kuma
+                port:
+                  number: 3001
+    - host: app.uptimehive.com
       http:
         paths:
           - path: /

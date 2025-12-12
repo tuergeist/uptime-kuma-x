@@ -300,14 +300,15 @@ class ScheduleService {
      * @returns {Promise<void>}
      */
     async deactivateSchedule(monitorId) {
+        // Use false instead of 0 for PostgreSQL boolean compatibility
         await R.exec(`
             UPDATE monitor_schedule
-            SET active = 0,
+            SET active = ?,
                 claimed_by = NULL,
                 claimed_at = NULL,
                 updated_at = ?
             WHERE monitor_id = ?
-        `, [R.isoDateTime(dayjs()), monitorId]);
+        `, [false, R.isoDateTime(dayjs()), monitorId]);
 
         log.debug("schedule", `Deactivated schedule for monitor ${monitorId}`);
     }
