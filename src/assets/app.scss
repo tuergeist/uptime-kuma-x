@@ -2,6 +2,14 @@
 @import "multiselect.scss";
 @import "node_modules/bootstrap/scss/bootstrap";
 
+// Status indicator CSS custom properties (separate from brand primary)
+:root {
+    --status-up: #{$status-up};
+    --status-down: #{$status-down};
+    --status-pending: #{$status-pending};
+    --status-maintenance: #{$status-maintenance};
+}
+
 #app {
     font-family: "Twemoji Country Flags", BlinkMacSystemFont, segoe ui, Roboto, helvetica neue, Arial, noto sans, sans-serif, apple color emoji, segoe ui emoji, segoe ui symbol, noto color emoji;
 }
@@ -500,8 +508,8 @@ optgroup {
 
 .alert-success {
     color: #122f21;
-    background-color: $primary;
-    border-color: $primary;
+    background-color: $status-up;
+    border-color: $status-up;
 }
 
 .alert-info {
@@ -518,8 +526,8 @@ optgroup {
 
 .btn-success {
     color: #fff;
-    background-color: #4caf50;
-    border-color: #4caf50;
+    background-color: $status-up;
+    border-color: $status-up;
 }
 
 [contenteditable=true] {

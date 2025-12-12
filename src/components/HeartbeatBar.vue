@@ -561,10 +561,10 @@ export default {
             const canvasStyles = getComputedStyle(canvas.parentElement);
             const colors = {
                 empty: canvasStyles.getPropertyValue("--beat-empty-color") || "#f0f8ff",
-                down: rootStyles.getPropertyValue("--bs-danger") || "#dc3545",
-                pending: rootStyles.getPropertyValue("--bs-warning") || "#ffc107",
-                maintenance: rootStyles.getPropertyValue("--maintenance") || "#1d4ed8",
-                up: rootStyles.getPropertyValue("--bs-primary") || "#f59e0b",
+                down: rootStyles.getPropertyValue("--status-down") || "#dc3545",
+                pending: rootStyles.getPropertyValue("--status-pending") || "#f8a306",
+                maintenance: rootStyles.getPropertyValue("--status-maintenance") || "#1747f5",
+                up: rootStyles.getPropertyValue("--status-up") || "#5cdd8b",
             };
 
             // Draw each beat

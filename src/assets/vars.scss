@@ -1,6 +1,14 @@
+// Brand colors (amber) - used for UI elements like buttons, links
 $primary: #f59e0b;
 $primary-light: #fbbf24;
 $primary-dark: #d97706;
+
+// Status indicator colors - used for monitor health status
+$status-up: #5cdd8b;
+$status-down: #dc3545;
+$status-pending: #f8a306;
+$status-maintenance: #1747f5;
+
 $danger: #dc3545;
 $warning: #f8a306;
 $maintenance: #1747f5;

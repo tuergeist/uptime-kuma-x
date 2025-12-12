@@ -77,7 +77,7 @@ async function sendInvitationEmail(email, token, tenantName, inviterName, role) 
     const appUrl = getAppUrl();
     const inviteUrl = `${appUrl}/invite/${token}`;
 
-    const subject = `You've been invited to join ${tenantName} on Uptime Kuma`;
+    const subject = `You've been invited to join ${tenantName} on Uptime Hive`;
 
     const html = `
 <!DOCTYPE html>
@@ -87,16 +87,16 @@ async function sendInvitationEmail(email, token, tenantName, inviterName, role) 
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #5cdd8b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header { background: #f59e0b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #5cdd8b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .button { display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Uptime Kuma</h1>
+            <h1>Uptime Hive</h1>
         </div>
         <div class="content">
             <h2>You're invited!</h2>
@@ -114,7 +114,7 @@ async function sendInvitationEmail(email, token, tenantName, inviterName, role) 
             </p>
         </div>
         <div class="footer">
-            <p>Uptime Kuma - A fancy self-hosted monitoring tool</p>
+            <p>Uptime Hive - A fancy self-hosted monitoring tool</p>
         </div>
     </div>
 </body>
@@ -122,7 +122,7 @@ async function sendInvitationEmail(email, token, tenantName, inviterName, role) 
     `.trim();
 
     const text = `
-You've been invited to join ${tenantName} on Uptime Kuma
+You've been invited to join ${tenantName} on Uptime Hive
 
 ${inviterName ? `${inviterName} has invited you` : "You have been invited"} to join ${tenantName} as a ${role}.
 
@@ -132,7 +132,7 @@ ${inviteUrl}
 This invitation expires in 7 days.
 
 ---
-Uptime Kuma - A fancy self-hosted monitoring tool
+Uptime Hive - A fancy self-hosted monitoring tool
     `.trim();
 
     try {
@@ -169,7 +169,7 @@ async function sendWelcomeEmail(email, username, tenantName) {
 
     const appUrl = getAppUrl();
 
-    const subject = `Welcome to Uptime Kuma, ${username}!`;
+    const subject = `Welcome to Uptime Hive, ${username}!`;
 
     const html = `
 <!DOCTYPE html>
@@ -179,16 +179,16 @@ async function sendWelcomeEmail(email, username, tenantName) {
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #5cdd8b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header { background: #f59e0b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #5cdd8b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .button { display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Welcome to Uptime Kuma!</h1>
+            <h1>Welcome to Uptime Hive!</h1>
         </div>
         <div class="content">
             <h2>Hi ${username}!</h2>
@@ -199,7 +199,7 @@ async function sendWelcomeEmail(email, username, tenantName) {
             </p>
         </div>
         <div class="footer">
-            <p>Uptime Kuma - A fancy self-hosted monitoring tool</p>
+            <p>Uptime Hive - A fancy self-hosted monitoring tool</p>
         </div>
     </div>
 </body>
@@ -207,7 +207,7 @@ async function sendWelcomeEmail(email, username, tenantName) {
     `.trim();
 
     const text = `
-Welcome to Uptime Kuma, ${username}!
+Welcome to Uptime Hive, ${username}!
 
 Your organization ${tenantName} has been created successfully.
 
@@ -216,7 +216,7 @@ You can now start adding monitors to track the uptime of your websites and servi
 Go to your dashboard: ${appUrl}/dashboard
 
 ---
-Uptime Kuma - A fancy self-hosted monitoring tool
+Uptime Hive - A fancy self-hosted monitoring tool
     `.trim();
 
     try {
