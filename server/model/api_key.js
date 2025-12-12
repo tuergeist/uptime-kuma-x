@@ -55,15 +55,17 @@ class APIKey extends BeanModel {
      * Create a new API Key and store it in the database
      * @param {object} key Object sent by client
      * @param {int} userID ID of socket user
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<bean>} API key
      */
-    static async save(key, userID) {
+    static async save(key, userID, tenantId = 1) {
         let bean;
         bean = R.dispense("api_key");
 
         bean.key = key.key;
         bean.name = key.name;
         bean.user_id = userID;
+        bean.tenant_id = tenantId;
         bean.active = key.active;
         bean.expires = key.expires;
 

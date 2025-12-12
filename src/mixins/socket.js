@@ -107,7 +107,17 @@ export default {
             if (env === "development" && isDevContainer()) {
                 url = protocol + getDevContainerServerHostname();
             } else if (env === "development" || localStorage.dev === "dev") {
-                url = protocol + location.hostname + ":3001";
+                // In development, use Vite proxy (same origin) if available,
+                // otherwise try backend port directly
+                // If current port ends in 000, assume Vite proxy is configured
+                const currentPort = parseInt(location.port) || (location.protocol === "https:" ? 443 : 80);
+                if (currentPort === 3000 || currentPort % 1000 === 0) {
+                    // Use Vite proxy - connect to same origin
+                    url = undefined;
+                } else {
+                    // Direct connection to backend port
+                    url = protocol + location.hostname + ":3001";
+                }
             } else {
                 // Connect to the current url
                 url = undefined;

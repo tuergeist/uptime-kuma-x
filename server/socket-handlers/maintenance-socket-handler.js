@@ -21,6 +21,7 @@ module.exports.maintenanceSocketHandler = (socket) => {
 
             let bean = await Maintenance.jsonToBean(R.dispense("maintenance"), maintenance);
             bean.user_id = socket.userID;
+            bean.tenant_id = socket.tenantId || 1;
             let maintenanceID = await R.store(bean);
 
             server.maintenanceList[maintenanceID] = bean;
@@ -50,7 +51,7 @@ module.exports.maintenanceSocketHandler = (socket) => {
 
             let bean = server.getMaintenance(maintenance.id);
 
-            if (bean.user_id !== socket.userID) {
+            if (bean.user_id !== socket.userID || bean.tenant_id !== (socket.tenantId || 1)) {
                 throw new Error("Permission denied.");
             }
 
@@ -79,6 +80,16 @@ module.exports.maintenanceSocketHandler = (socket) => {
     socket.on("addMonitorMaintenance", async (maintenanceID, monitors, callback) => {
         try {
             checkLogin(socket);
+
+            // Verify maintenance belongs to this tenant before modifying
+            let maintenanceBean = await R.findOne("maintenance", " id = ? AND user_id = ? AND tenant_id = ? ", [
+                maintenanceID,
+                socket.userID,
+                socket.tenantId || 1,
+            ]);
+            if (!maintenanceBean) {
+                throw new Error("Maintenance not found");
+            }
 
             await R.exec("DELETE FROM monitor_maintenance WHERE maintenance_id = ?", [
                 maintenanceID
@@ -114,6 +125,16 @@ module.exports.maintenanceSocketHandler = (socket) => {
     socket.on("addMaintenanceStatusPage", async (maintenanceID, statusPages, callback) => {
         try {
             checkLogin(socket);
+
+            // Verify maintenance belongs to this tenant before modifying
+            let maintenanceBean = await R.findOne("maintenance", " id = ? AND user_id = ? AND tenant_id = ? ", [
+                maintenanceID,
+                socket.userID,
+                socket.tenantId || 1,
+            ]);
+            if (!maintenanceBean) {
+                throw new Error("Maintenance not found");
+            }
 
             await R.exec("DELETE FROM maintenance_status_page WHERE maintenance_id = ?", [
                 maintenanceID
@@ -151,9 +172,10 @@ module.exports.maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Get Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let bean = await R.findOne("maintenance", " id = ? AND user_id = ? ", [
+            let bean = await R.findOne("maintenance", " id = ? AND user_id = ? AND tenant_id = ? ", [
                 maintenanceID,
                 socket.userID,
+                socket.tenantId || 1,
             ]);
 
             callback({
@@ -191,8 +213,19 @@ module.exports.maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Get Monitors for Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let monitors = await R.getAll("SELECT monitor.id FROM monitor_maintenance mm JOIN monitor ON mm.monitor_id = monitor.id WHERE mm.maintenance_id = ? ", [
+            // Verify maintenance belongs to this tenant
+            let maintenanceBean = await R.findOne("maintenance", " id = ? AND user_id = ? AND tenant_id = ? ", [
                 maintenanceID,
+                socket.userID,
+                socket.tenantId || 1,
+            ]);
+            if (!maintenanceBean) {
+                throw new Error("Maintenance not found");
+            }
+
+            let monitors = await R.getAll("SELECT monitor.id FROM monitor_maintenance mm JOIN monitor ON mm.monitor_id = monitor.id WHERE mm.maintenance_id = ? AND monitor.tenant_id = ? ", [
+                maintenanceID,
+                socket.tenantId || 1,
             ]);
 
             callback({
@@ -215,8 +248,19 @@ module.exports.maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Get Status Pages for Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let statusPages = await R.getAll("SELECT status_page.id, status_page.title FROM maintenance_status_page msp JOIN status_page ON msp.status_page_id = status_page.id WHERE msp.maintenance_id = ? ", [
+            // Verify maintenance belongs to this tenant
+            let maintenanceBean = await R.findOne("maintenance", " id = ? AND user_id = ? AND tenant_id = ? ", [
                 maintenanceID,
+                socket.userID,
+                socket.tenantId || 1,
+            ]);
+            if (!maintenanceBean) {
+                throw new Error("Maintenance not found");
+            }
+
+            let statusPages = await R.getAll("SELECT status_page.id, status_page.title FROM maintenance_status_page msp JOIN status_page ON msp.status_page_id = status_page.id WHERE msp.maintenance_id = ? AND status_page.tenant_id = ? ", [
+                maintenanceID,
+                socket.tenantId || 1,
             ]);
 
             callback({
@@ -244,9 +288,10 @@ module.exports.maintenanceSocketHandler = (socket) => {
                 delete server.maintenanceList[maintenanceID];
             }
 
-            await R.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? ", [
+            await R.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
                 maintenanceID,
                 socket.userID,
+                socket.tenantId || 1,
             ]);
 
             apicache.clear();

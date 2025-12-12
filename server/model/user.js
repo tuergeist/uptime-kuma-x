@@ -13,7 +13,8 @@ class User extends BeanModel {
      * @returns {Promise<void>}
      */
     static async resetPassword(userID, newPassword) {
-        await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
+        // Use double quotes for PostgreSQL compatibility ("user" is reserved)
+        await R.exec("UPDATE \"user\" SET password = ? WHERE id = ? ", [
             await passwordHash.generate(newPassword),
             userID
         ]);
@@ -27,7 +28,8 @@ class User extends BeanModel {
     async resetPassword(newPassword) {
         const hashedPassword = await passwordHash.generate(newPassword);
 
-        await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
+        // Use double quotes for PostgreSQL compatibility ("user" is reserved)
+        await R.exec("UPDATE \"user\" SET password = ? WHERE id = ? ", [
             hashedPassword,
             this.id
         ]);
@@ -45,6 +47,9 @@ class User extends BeanModel {
         return jwt.sign({
             username: user.username,
             h: shake256(user.password, SHAKE256_LENGTH),
+            // Multi-tenancy fields
+            tenant_id: user.tenant_id || 1,
+            role: user.role || "member",
         }, jwtSecret);
     }
 

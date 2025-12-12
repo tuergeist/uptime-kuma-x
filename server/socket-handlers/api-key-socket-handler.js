@@ -22,7 +22,7 @@ module.exports.apiKeySocketHandler = (socket) => {
             let clearKey = nanoid(40);
             let hashedKey = await passwordHash.generate(clearKey);
             key["key"] = hashedKey;
-            let bean = await APIKey.save(key, socket.userID);
+            let bean = await APIKey.save(key, socket.userID, socket.tenantId || 1);
 
             log.debug("apikeys", "Added API Key");
             log.debug("apikeys", key);
@@ -74,9 +74,10 @@ module.exports.apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Deleted API Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("DELETE FROM api_key WHERE id = ? AND user_id = ? ", [
+            await R.exec("DELETE FROM api_key WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
                 keyID,
                 socket.userID,
+                socket.tenantId || 1,
             ]);
 
             apicache.clear();
@@ -103,8 +104,10 @@ module.exports.apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Disabled Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("UPDATE api_key SET active = 0 WHERE id = ? ", [
+            await R.exec("UPDATE api_key SET active = 0 WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
                 keyID,
+                socket.userID,
+                socket.tenantId || 1,
             ]);
 
             apicache.clear();
@@ -131,8 +134,11 @@ module.exports.apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Enabled Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("UPDATE api_key SET active = 1 WHERE id = ? ", [
+            // Use true instead of 1 for PostgreSQL boolean compatibility
+            await R.exec("UPDATE api_key SET active = true WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
                 keyID,
+                socket.userID,
+                socket.tenantId || 1,
             ]);
 
             apicache.clear();

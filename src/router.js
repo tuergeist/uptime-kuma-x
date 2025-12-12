@@ -10,6 +10,8 @@ import EditMaintenance from "./pages/EditMaintenance.vue";
 import List from "./pages/List.vue";
 const Settings = () => import("./pages/Settings.vue");
 import Setup from "./pages/Setup.vue";
+import Signup from "./pages/Signup.vue";
+import Invite from "./pages/Invite.vue";
 import StatusPage from "./pages/StatusPage.vue";
 import Entry from "./pages/Entry.vue";
 import ManageStatusPage from "./pages/ManageStatusPage.vue";
@@ -32,6 +34,7 @@ const Security = () => import("./components/settings/Security.vue");
 import Proxies from "./components/settings/Proxies.vue";
 import About from "./components/settings/About.vue";
 import RemoteBrowsers from "./components/settings/RemoteBrowsers.vue";
+import Team from "./components/settings/Team.vue";
 
 const routes = [
     {
@@ -133,6 +136,10 @@ const routes = [
                                 component: Proxies,
                             },
                             {
+                                path: "team",
+                                component: Team,
+                            },
+                            {
                                 path: "about",
                                 component: About,
                             },
@@ -177,6 +184,14 @@ const routes = [
     {
         path: "/setup-database",
         component: SetupDatabase,
+    },
+    {
+        path: "/signup",
+        component: Signup,
+    },
+    {
+        path: "/invite/:token",
+        component: Invite,
     },
     {
         path: "/status-page",

@@ -228,15 +228,17 @@ class Notification {
      * @param {object} notification Notification to save
      * @param {?number} notificationID ID of notification to update
      * @param {number} userID ID of user who adds notification
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<Bean>} Notification that was saved
      */
-    static async save(notification, notificationID, userID) {
+    static async save(notification, notificationID, userID, tenantId = 1) {
         let bean;
 
         if (notificationID) {
-            bean = await R.findOne("notification", " id = ? AND user_id = ? ", [
+            bean = await R.findOne("notification", " id = ? AND user_id = ? AND tenant_id = ? ", [
                 notificationID,
                 userID,
+                tenantId,
             ]);
 
             if (!bean) {
@@ -244,6 +246,7 @@ class Notification {
             }
         } else {
             bean = R.dispense("notification");
+            bean.tenant_id = tenantId;
         }
 
         bean.name = notification.name;
@@ -253,7 +256,7 @@ class Notification {
         await R.store(bean);
 
         if (notification.applyExisting) {
-            await applyNotificationEveryMonitor(bean.id, userID);
+            await applyNotificationEveryMonitor(bean.id, userID, tenantId);
         }
 
         return bean;
@@ -263,12 +266,14 @@ class Notification {
      * Delete a notification
      * @param {number} notificationID ID of notification to delete
      * @param {number} userID ID of user who created notification
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<void>}
      */
-    static async delete(notificationID, userID) {
-        let bean = await R.findOne("notification", " id = ? AND user_id = ? ", [
+    static async delete(notificationID, userID, tenantId = 1) {
+        let bean = await R.findOne("notification", " id = ? AND user_id = ? AND tenant_id = ? ", [
             notificationID,
             userID,
+            tenantId,
         ]);
 
         if (!bean) {
@@ -291,11 +296,13 @@ class Notification {
  * Apply the notification to every monitor
  * @param {number} notificationID ID of notification to apply
  * @param {number} userID ID of user who created notification
+ * @param {number} tenantId ID of tenant (defaults to 1)
  * @returns {Promise<void>}
  */
-async function applyNotificationEveryMonitor(notificationID, userID) {
-    let monitors = await R.getAll("SELECT id FROM monitor WHERE user_id = ?", [
+async function applyNotificationEveryMonitor(notificationID, userID, tenantId = 1) {
+    let monitors = await R.getAll("SELECT id FROM monitor WHERE user_id = ? AND tenant_id = ?", [
         userID,
+        tenantId,
     ]);
 
     for (let i = 0; i < monitors.length; i++) {

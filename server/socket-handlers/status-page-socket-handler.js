@@ -20,7 +20,7 @@ module.exports.statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(slug, socket.tenantId || 1);
 
             if (!statusPageID) {
                 throw new Error("slug is not found");
@@ -73,7 +73,7 @@ module.exports.statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(slug, socket.tenantId || 1);
 
             await R.exec("UPDATE incident SET pin = 0 WHERE pin = 1 AND status_page_id = ? ", [
                 statusPageID
@@ -94,8 +94,9 @@ module.exports.statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPage = await R.findOne("status_page", " slug = ? ", [
-                slug
+            let statusPage = await R.findOne("status_page", " slug = ? AND tenant_id = ? ", [
+                slug,
+                socket.tenantId || 1,
             ]);
 
             if (!statusPage) {
@@ -121,8 +122,9 @@ module.exports.statusPageSocketHandler = (socket) => {
             checkLogin(socket);
 
             // Save Config
-            let statusPage = await R.findOne("status_page", " slug = ? ", [
-                slug
+            let statusPage = await R.findOne("status_page", " slug = ? AND tenant_id = ? ", [
+                slug,
+                socket.tenantId || 1,
             ]);
 
             if (!statusPage) {
@@ -226,7 +228,8 @@ module.exports.statusPageSocketHandler = (socket) => {
             // Delete groups that are not in the list
             log.debug("socket", "Delete groups that are not in the list");
             if (groupIDList.length === 0) {
-                await R.exec("DELETE FROM `group` WHERE status_page_id = ?", [ statusPage.id ]);
+                // Use double quotes for PostgreSQL compatibility ("group" is reserved)
+                await R.exec("DELETE FROM \"group\" WHERE status_page_id = ?", [ statusPage.id ]);
             } else {
                 const slots = groupIDList.map(() => "?").join(",");
 
@@ -291,6 +294,7 @@ module.exports.statusPageSocketHandler = (socket) => {
             statusPage.theme = "auto";
             statusPage.icon = "";
             statusPage.autoRefreshInterval = 300;
+            statusPage.tenant_id = socket.tenantId || 1;
             await R.store(statusPage);
 
             callback({
@@ -316,7 +320,7 @@ module.exports.statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(slug, socket.tenantId || 1);
 
             if (statusPageID) {
 
@@ -334,8 +338,8 @@ module.exports.statusPageSocketHandler = (socket) => {
                     statusPageID
                 ]);
 
-                // Delete group
-                await R.exec("DELETE FROM `group` WHERE status_page_id = ? ", [
+                // Delete group (use double quotes for PostgreSQL compatibility)
+                await R.exec("DELETE FROM \"group\" WHERE status_page_id = ? ", [
                     statusPageID
                 ]);
 

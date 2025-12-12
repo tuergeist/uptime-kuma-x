@@ -16,13 +16,14 @@ class Proxy {
      * @param {object} proxy Proxy to store
      * @param {number} proxyID ID of proxy to update
      * @param {number} userID ID of user the proxy belongs to
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<Bean>} Updated proxy
      */
-    static async save(proxy, proxyID, userID) {
+    static async save(proxy, proxyID, userID, tenantId = 1) {
         let bean;
 
         if (proxyID) {
-            bean = await R.findOne("proxy", " id = ? AND user_id = ? ", [ proxyID, userID ]);
+            bean = await R.findOne("proxy", " id = ? AND user_id = ? AND tenant_id = ? ", [ proxyID, userID, tenantId ]);
 
             if (!bean) {
                 throw new Error("proxy not found");
@@ -30,6 +31,7 @@ class Proxy {
 
         } else {
             bean = R.dispense("proxy");
+            bean.tenant_id = tenantId;
         }
 
         // Make sure given proxy protocol is supported
@@ -40,9 +42,10 @@ class Proxy {
             );
         }
 
-        // When proxy is default update deactivate old default proxy
+        // When proxy is default update deactivate old default proxy (within tenant)
         if (proxy.default) {
-            await R.exec("UPDATE proxy SET `default` = 0 WHERE `default` = 1");
+            // Use double quotes for PostgreSQL compatibility (works in SQLite too)
+            await R.exec("UPDATE proxy SET \"default\" = false WHERE \"default\" = true AND tenant_id = ?", [tenantId]);
         }
 
         bean.user_id = userID;
@@ -58,7 +61,7 @@ class Proxy {
         await R.store(bean);
 
         if (proxy.applyExisting) {
-            await applyProxyEveryMonitor(bean.id, userID);
+            await applyProxyEveryMonitor(bean.id, userID, tenantId);
         }
 
         return bean;
@@ -68,17 +71,18 @@ class Proxy {
      * Deletes proxy with given id and removes it from monitors
      * @param {number} proxyID ID of proxy to delete
      * @param {number} userID ID of proxy owner
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<void>}
      */
-    static async delete(proxyID, userID) {
-        const bean = await R.findOne("proxy", " id = ? AND user_id = ? ", [ proxyID, userID ]);
+    static async delete(proxyID, userID, tenantId = 1) {
+        const bean = await R.findOne("proxy", " id = ? AND user_id = ? AND tenant_id = ? ", [ proxyID, userID, tenantId ]);
 
         if (!bean) {
             throw new Error("proxy not found");
         }
 
-        // Delete removed proxy from monitors if exists
-        await R.exec("UPDATE monitor SET proxy_id = null WHERE proxy_id = ?", [ proxyID ]);
+        // Delete removed proxy from monitors if exists (within tenant)
+        await R.exec("UPDATE monitor SET proxy_id = null WHERE proxy_id = ? AND tenant_id = ?", [ proxyID, tenantId ]);
 
         // Delete proxy from list
         await R.trash(bean);
@@ -182,16 +186,17 @@ class Proxy {
  * Applies given proxy id to monitors
  * @param {number} proxyID ID of proxy to apply
  * @param {number} userID ID of proxy owner
+ * @param {number} tenantId ID of tenant (defaults to 1)
  * @returns {Promise<void>}
  */
-async function applyProxyEveryMonitor(proxyID, userID) {
-    // Find all monitors with id and proxy id
-    const monitors = await R.getAll("SELECT id, proxy_id FROM monitor WHERE user_id = ?", [ userID ]);
+async function applyProxyEveryMonitor(proxyID, userID, tenantId = 1) {
+    // Find all monitors with id and proxy id (within tenant)
+    const monitors = await R.getAll("SELECT id, proxy_id FROM monitor WHERE user_id = ? AND tenant_id = ?", [ userID, tenantId ]);
 
-    // Update proxy id not match with given proxy id
+    // Update proxy id not match with given proxy id (within tenant)
     for (const monitor of monitors) {
         if (monitor.proxy_id !== proxyID) {
-            await R.exec("UPDATE monitor SET proxy_id = ? WHERE id = ?", [ proxyID, monitor.id ]);
+            await R.exec("UPDATE monitor SET proxy_id = ? WHERE id = ? AND tenant_id = ?", [ proxyID, monitor.id, tenantId ]);
         }
     }
 }

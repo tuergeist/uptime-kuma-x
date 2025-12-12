@@ -76,7 +76,8 @@ class DnsMonitorType extends MonitorType {
         }
 
         if (monitor.dns_last_result !== dnsMessage && dnsMessage !== undefined) {
-            await R.exec("UPDATE `monitor` SET dns_last_result = ? WHERE id = ? ", [ dnsMessage, monitor.id ]);
+            // Remove backticks for PostgreSQL compatibility
+            await R.exec("UPDATE monitor SET dns_last_result = ? WHERE id = ? ", [ dnsMessage, monitor.id ]);
         }
 
         if (!conditionsResult) {

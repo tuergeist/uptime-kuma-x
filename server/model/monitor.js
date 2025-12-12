@@ -397,6 +397,7 @@ class Monitor extends BeanModel {
 
             let bean = R.dispense("heartbeat");
             bean.monitor_id = this.id;
+            bean.tenant_id = this.tenant_id || 1;
             bean.time = R.isoDateTimeMillis(dayjs.utc());
             bean.status = DOWN;
             bean.downCount = previousBeat?.downCount || 0;
@@ -1167,7 +1168,9 @@ class Monitor extends BeanModel {
     static async isActive(monitorID, active) {
         const parentActive = await Monitor.isParentActive(monitorID);
 
-        return (active === 1) && parentActive;
+        // Handle both SQLite (integer 0/1) and PostgreSQL (boolean true/false)
+        const isActiveValue = active === 1 || active === true;
+        return isActiveValue && parentActive;
     }
 
     /**
@@ -1339,7 +1342,8 @@ class Monitor extends BeanModel {
         let notificationList = await R.getAll("SELECT notification.* FROM notification, monitor_notification WHERE monitor_id = ? AND monitor_notification.notification_id = notification.id ", [
             monitor.id,
         ]);
-        return notificationList;
+        // Ensure we always return an array (PostgreSQL compatibility)
+        return notificationList || [];
     }
 
     /**
@@ -1449,10 +1453,15 @@ class Monitor extends BeanModel {
      * @returns {Promise<boolean>} Is the monitor under maintenance
      */
     static async isUnderMaintenance(monitorID) {
-        const maintenanceIDList = await R.getCol(`
+        let maintenanceIDList = await R.getCol(`
             SELECT maintenance_id FROM monitor_maintenance
             WHERE monitor_id = ?
         `, [ monitorID ]);
+
+        // Ensure we have an array (PostgreSQL compatibility)
+        if (!Array.isArray(maintenanceIDList)) {
+            maintenanceIDList = [];
+        }
 
         for (const maintenanceID of maintenanceIDList) {
             const maintenance = await UptimeKumaServer.getInstance().getMaintenance(maintenanceID);
@@ -1692,7 +1701,8 @@ class Monitor extends BeanModel {
      * @returns {Promise<void>}
      */
     static async unlinkAllChildren(groupID) {
-        return await R.exec("UPDATE `monitor` SET parent = ? WHERE parent = ? ", [
+        // Remove backticks for PostgreSQL compatibility
+        return await R.exec("UPDATE monitor SET parent = ? WHERE parent = ? ", [
             null, groupID
         ]);
     }
@@ -1701,9 +1711,10 @@ class Monitor extends BeanModel {
      * Delete a monitor from the system
      * @param {number} monitorID ID of the monitor to delete
      * @param {number} userID ID of the user who owns the monitor
+     * @param {number} tenantId ID of the tenant (defaults to 1)
      * @returns {Promise<void>}
      */
-    static async deleteMonitor(monitorID, userID) {
+    static async deleteMonitor(monitorID, userID, tenantId = 1) {
         const server = UptimeKumaServer.getInstance();
 
         // Stop the monitor if it's running
@@ -1713,9 +1724,10 @@ class Monitor extends BeanModel {
         }
 
         // Delete from database
-        await R.exec("DELETE FROM monitor WHERE id = ? AND user_id = ? ", [
+        await R.exec("DELETE FROM monitor WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
             monitorID,
             userID,
+            tenantId,
         ]);
     }
 
@@ -1723,13 +1735,15 @@ class Monitor extends BeanModel {
      * Recursively delete a monitor and all its descendants
      * @param {number} monitorID ID of the monitor to delete
      * @param {number} userID ID of the user who owns the monitor
+     * @param {number} tenantId ID of the tenant (defaults to 1)
      * @returns {Promise<void>}
      */
-    static async deleteMonitorRecursively(monitorID, userID) {
+    static async deleteMonitorRecursively(monitorID, userID, tenantId = 1) {
         // Check if this monitor is a group
-        const monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [
+        const monitor = await R.findOne("monitor", " id = ? AND user_id = ? AND tenant_id = ? ", [
             monitorID,
             userID,
+            tenantId,
         ]);
 
         if (monitor && monitor.type === "group") {
@@ -1737,13 +1751,13 @@ class Monitor extends BeanModel {
             const children = await Monitor.getChildren(monitorID);
             if (children && children.length > 0) {
                 for (const child of children) {
-                    await Monitor.deleteMonitorRecursively(child.id, userID);
+                    await Monitor.deleteMonitorRecursively(child.id, userID, tenantId);
                 }
             }
         }
 
         // Delete the monitor itself
-        await Monitor.deleteMonitor(monitorID, userID);
+        await Monitor.deleteMonitor(monitorID, userID, tenantId);
     }
 
     /**

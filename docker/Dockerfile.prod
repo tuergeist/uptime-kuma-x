@@ -1,0 +1,97 @@
+# Production Dockerfile for Uptime Kuma Multi-Tenant
+# Multi-stage build for optimized image size
+
+# ============================================
+# Stage 1: Build frontend
+# ============================================
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies for build)
+RUN npm ci --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+# Build frontend
+RUN npm run build
+
+# ============================================
+# Stage 2: Production dependencies
+# ============================================
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --omit=dev --legacy-peer-deps
+
+# ============================================
+# Stage 3: Production runtime
+# ============================================
+FROM node:20-alpine AS runtime
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    curl \
+    iputils \
+    setpriv \
+    dumb-init \
+    ca-certificates \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user
+RUN addgroup -g 1001 uptimekuma && \
+    adduser -u 1001 -G uptimekuma -s /bin/sh -D uptimekuma
+
+WORKDIR /app
+
+# Copy production dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy built frontend from frontend-builder stage
+COPY --from=frontend-builder /app/dist ./dist
+
+# Copy server code and necessary files
+COPY server ./server
+COPY db ./db
+COPY src/util.js ./src/util.js
+COPY src/util.ts ./src/util.ts
+COPY src/util-frontend.js ./src/util-frontend.js
+COPY package.json ./
+
+# Create data directory
+RUN mkdir -p /app/data && chown -R uptimekuma:uptimekuma /app/data
+
+# Set environment
+ENV NODE_ENV=production
+ENV DATA_DIR=/app/data
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Run as non-root user
+USER uptimekuma
+
+# Start the server
+CMD ["node", "server/server.js"]

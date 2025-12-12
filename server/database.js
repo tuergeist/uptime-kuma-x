@@ -326,6 +326,27 @@ class Database {
                 },
                 pool: mariadbPoolConfig,
             };
+        } else if (dbConfig.type === "postgres") {
+            // PostgreSQL support for multi-tenancy
+            log.info("db", "Connecting to PostgreSQL...");
+
+            let postgresPoolConfig = {
+                min: parseInt(process.env.DATABASE_POOL_MIN) || 2,
+                max: parsedMaxPoolConnections,
+                idleTimeoutMillis: 30000,
+            };
+
+            config = {
+                client: "pg",
+                connection: {
+                    host: dbConfig.hostname || process.env.DATABASE_HOST || "localhost",
+                    port: parseInt(dbConfig.port || process.env.DATABASE_PORT) || 5432,
+                    user: dbConfig.username || process.env.DATABASE_USER || "kuma",
+                    password: dbConfig.password || process.env.DATABASE_PASSWORD || "kuma",
+                    database: dbConfig.dbName || dbConfig.database || process.env.DATABASE_NAME || "uptime_kuma",
+                },
+                pool: postgresPoolConfig,
+            };
         } else {
             throw new Error("Unknown Database type: " + dbConfig.type);
         }
@@ -343,6 +364,84 @@ class Database {
 
         R.setup(knexInstance);
 
+        // Monkey-patch R methods for PostgreSQL compatibility
+        // PostgreSQL returns Result objects with .rows property, not arrays directly
+
+        /**
+         * Extract rows array from PostgreSQL Result object or return the array/value as-is
+         * @param {any} result Result from database query
+         * @returns {Array} Array of rows
+         */
+        function extractRows(result) {
+            if (!result) {
+                return [];
+            }
+            // PostgreSQL Result object has a .rows property
+            if (result.rows && Array.isArray(result.rows)) {
+                return result.rows;
+            }
+            if (Array.isArray(result)) {
+                return result;
+            }
+            return [];
+        }
+
+        const originalGetAll = R.getAll.bind(R);
+        R.getAll = async function (...args) {
+            const result = await originalGetAll(...args);
+            return extractRows(result);
+        };
+
+        // Fix R.getCol for PostgreSQL - use R.getAll and extract first column from each row
+        R.getCol = async function (sql, bindings = []) {
+            const rows = await R.getAll(sql, bindings);
+            if (!rows || rows.length === 0) {
+                return [];
+            }
+            // Get the first column name from the first row
+            const keys = Object.keys(rows[0]);
+            if (keys.length === 0) {
+                return [];
+            }
+            const colName = keys[0];
+            return rows.map(row => row[colName]);
+        };
+
+        const originalFind = R.find.bind(R);
+        R.find = async function (...args) {
+            const result = await originalFind(...args);
+            // R.find returns beans which should already be an array
+            // Only apply extractRows if we get a PostgreSQL Result object (which shouldn't happen for R.find)
+            if (result && result.rows && Array.isArray(result.rows)) {
+                log.debug("db", "R.find returned PostgreSQL Result, extracting rows (this shouldn't happen)");
+                return result.rows;
+            }
+            // If it's already an array of beans, return as-is
+            if (Array.isArray(result)) {
+                return result;
+            }
+            log.debug("db", `R.find returned unexpected type: ${typeof result}, value: ${JSON.stringify(result)}`);
+            return [];
+        };
+
+        // Fix R.getRow for PostgreSQL - use R.getAll and return first row
+        // The original R.getRow doesn't handle PostgreSQL Result objects properly
+        R.getRow = async function (sql, bindings = []) {
+            const rows = await R.getAll(sql, bindings);
+            return rows.length > 0 ? rows[0] : null;
+        };
+
+        // Fix R.getCell for PostgreSQL - use R.getRow and return first column value
+        R.getCell = async function (sql, bindings = []) {
+            const row = await R.getRow(sql, bindings);
+            if (!row) {
+                return null;
+            }
+            // Return the first column value
+            const keys = Object.keys(row);
+            return keys.length > 0 ? row[keys[0]] : null;
+        };
+
         if (process.env.SQL_LOG === "1") {
             R.debug(true);
         }
@@ -358,6 +457,8 @@ class Database {
             await this.initSQLite(testMode, noLog);
         } else if (dbConfig.type.endsWith("mariadb")) {
             await this.initMariaDB();
+        } else if (dbConfig.type === "postgres") {
+            await this.initPostgres();
         }
     }
 
@@ -405,6 +506,28 @@ class Database {
         } else {
             log.debug("db", "MariaDB database already exists");
         }
+    }
+
+    /**
+     * Initialize PostgreSQL
+     * @returns {Promise<void>}
+     */
+    static async initPostgres() {
+        log.debug("db", "Initializing PostgreSQL...");
+
+        // Check if tables exist by looking for a core table
+        let hasTable = await R.hasTable("monitor");
+        if (!hasTable) {
+            log.info("db", "Creating tables for PostgreSQL...");
+            const { createTablesPostgres } = require("../db/knex_init_db_postgres");
+            await createTablesPostgres();
+        } else {
+            log.debug("db", "PostgreSQL database already exists");
+        }
+
+        // Log PostgreSQL version
+        let versionResult = await R.knex.raw("SELECT version()");
+        log.info("db", "PostgreSQL Version: " + versionResult.rows[0].version.split(",")[0]);
     }
 
     /**
@@ -752,6 +875,8 @@ class Database {
     static sqlHourOffset() {
         if (Database.dbConfig.type === "sqlite") {
             return "DATETIME('now', ? || ' hours')";
+        } else if (Database.dbConfig.type === "postgres") {
+            return "(NOW() AT TIME ZONE 'UTC' + (? || ' hours')::INTERVAL)";
         } else {
             return "DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR)";
         }
@@ -805,17 +930,17 @@ class Database {
 
         log.info("db", "Getting list of unique monitors");
 
-        // Get a list of unique monitors from the heartbeat table, using raw sql
-        let monitors = await R.getAll(`
-            SELECT DISTINCT monitor_id
-            FROM heartbeat
-            ORDER BY monitor_id ASC
-        `);
+        // Get a list of unique monitors from the heartbeat table
+        // Use knex for PostgreSQL compatibility
+        let monitors = await R.knex("heartbeat")
+            .distinct("monitor_id")
+            .orderBy("monitor_id", "asc");
 
         // Stop if stat_* tables are not empty
         for (let table of [ "stat_minutely", "stat_hourly", "stat_daily" ]) {
-            let countResult = await R.getRow(`SELECT COUNT(*) AS count FROM ${table}`);
-            let count = countResult.count;
+            // Use knex for PostgreSQL compatibility (R.getRow adds parameterized LIMIT)
+            let countResult = await R.knex(table).count("* as count").first();
+            let count = parseInt(countResult.count);
             if (count > 0) {
                 log.warn("db", `Aggregate table ${table} is not empty, migration will not be started (Maybe you were using 2.0.0-dev?)`);
                 await migrationServer?.stop();

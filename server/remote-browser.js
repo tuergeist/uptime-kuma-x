@@ -6,10 +6,11 @@ class RemoteBrowser {
      * Gets remote browser from ID
      * @param {number} remoteBrowserID ID of the remote browser
      * @param {number} userID ID of the user who created the remote browser
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<Bean>} Remote Browser
      */
-    static async get(remoteBrowserID, userID) {
-        let bean = await R.findOne("remote_browser", " id = ? AND user_id = ? ", [ remoteBrowserID, userID ]);
+    static async get(remoteBrowserID, userID, tenantId = 1) {
+        let bean = await R.findOne("remote_browser", " id = ? AND user_id = ? AND tenant_id = ? ", [ remoteBrowserID, userID, tenantId ]);
 
         if (!bean) {
             throw new Error("Remote browser not found");
@@ -23,13 +24,14 @@ class RemoteBrowser {
      * @param {object} remoteBrowser Remote Browser to save
      * @param {?number} remoteBrowserID ID of the Remote Browser to update
      * @param {number} userID ID of the user who adds the Remote Browser
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<Bean>} Updated Remote Browser
      */
-    static async save(remoteBrowser, remoteBrowserID, userID) {
+    static async save(remoteBrowser, remoteBrowserID, userID, tenantId = 1) {
         let bean;
 
         if (remoteBrowserID) {
-            bean = await R.findOne("remote_browser", " id = ? AND user_id = ? ", [ remoteBrowserID, userID ]);
+            bean = await R.findOne("remote_browser", " id = ? AND user_id = ? AND tenant_id = ? ", [ remoteBrowserID, userID, tenantId ]);
 
             if (!bean) {
                 throw new Error("Remote browser not found");
@@ -37,6 +39,7 @@ class RemoteBrowser {
 
         } else {
             bean = R.dispense("remote_browser");
+            bean.tenant_id = tenantId;
         }
 
         bean.user_id = userID;
@@ -52,17 +55,18 @@ class RemoteBrowser {
      * Delete a Remote Browser
      * @param {number} remoteBrowserID ID of the Remote Browser to delete
      * @param {number} userID ID of the user who created the Remote Browser
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<void>}
      */
-    static async delete(remoteBrowserID, userID) {
-        let bean = await R.findOne("remote_browser", " id = ? AND user_id = ? ", [ remoteBrowserID, userID ]);
+    static async delete(remoteBrowserID, userID, tenantId = 1) {
+        let bean = await R.findOne("remote_browser", " id = ? AND user_id = ? AND tenant_id = ? ", [ remoteBrowserID, userID, tenantId ]);
 
         if (!bean) {
             throw new Error("Remote Browser not found");
         }
 
-        // Delete removed remote browser from monitors if exists
-        await R.exec("UPDATE monitor SET remote_browser = null WHERE remote_browser = ?", [ remoteBrowserID ]);
+        // Delete removed remote browser from monitors if exists (within tenant)
+        await R.exec("UPDATE monitor SET remote_browser = null WHERE remote_browser = ? AND tenant_id = ?", [ remoteBrowserID, tenantId ]);
 
         await R.trash(bean);
     }

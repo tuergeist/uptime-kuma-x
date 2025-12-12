@@ -1,0 +1,178 @@
+# Multi-Tenancy Development Environment
+# Usage: docker-compose -f docker/docker-compose-mt.yml up -d
+#
+# Phase 0: Start infrastructure only (PostgreSQL + Redis)
+#   docker-compose -f docker/docker-compose-mt.yml up -d postgres redis
+#
+# Full stack (API + Workers):
+#   docker-compose -f docker/docker-compose-mt.yml --profile app --profile workers up -d
+#
+# Just API (no workers - monitors run in-process):
+#   docker-compose -f docker/docker-compose-mt.yml --profile app up -d
+#
+# With optional tools (pgAdmin, Redis Commander):
+#   docker-compose -f docker/docker-compose-mt.yml --profile app --profile tools up -d
+#
+# Scale workers:
+#   docker-compose -f docker/docker-compose-mt.yml --profile app --profile workers up -d --scale worker=3
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: uptime-kuma-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kuma
+      POSTGRES_PASSWORD: kuma
+      POSTGRES_DB: uptime_kuma
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "4032:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kuma -d uptime_kuma"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Pub/Sub and Caching
+  redis:
+    image: redis:7-alpine
+    container_name: uptime-kuma-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "4079:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Uptime Kuma API Server (serves UI + API)
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: uptime-kuma-app
+    restart: unless-stopped
+    command: npm run dev
+    environment:
+      # Database connection
+      UPTIME_KUMA_DB_TYPE: postgres
+      UPTIME_KUMA_DB_HOSTNAME: postgres
+      UPTIME_KUMA_DB_PORT: 5432
+      UPTIME_KUMA_DB_NAME: uptime_kuma
+      UPTIME_KUMA_DB_USERNAME: kuma
+      UPTIME_KUMA_DB_PASSWORD: kuma
+      # Redis connection
+      REDIS_URL: redis://redis:6379
+      # Multi-tenancy
+      MULTI_TENANT: "true"
+      WORKER_MODE: "false"
+      # Development
+      NODE_ENV: development
+      SQL_LOG: "1"
+    ports:
+      - "4000:3000"
+      - "4001:3001"
+    volumes:
+      - ..:/app
+      - /app/node_modules
+      - app_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - app
+
+  # pgAdmin for Database Management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: uptime-kuma-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "4050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  # Redis Commander for Redis Management (optional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: uptime-kuma-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "4081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  # Monitor Worker (Phase 5 - Worker Architecture)
+  # Run monitor checks and publish results via Redis
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    restart: unless-stopped
+    command: node server/worker/index.js
+    environment:
+      # Database connection
+      UPTIME_KUMA_DB_TYPE: postgres
+      UPTIME_KUMA_DB_HOSTNAME: postgres
+      UPTIME_KUMA_DB_PORT: 5432
+      UPTIME_KUMA_DB_NAME: uptime_kuma
+      UPTIME_KUMA_DB_USERNAME: kuma
+      UPTIME_KUMA_DB_PASSWORD: kuma
+      # Redis connection
+      REDIS_URL: redis://redis:6379
+      # Worker configuration
+      WORKER_BATCH_SIZE: 10
+      WORKER_POLL_INTERVAL: 1000
+      WORKER_HEALTH_PORT: 3002
+      # Logging
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - workers
+    deploy:
+      mode: replicated
+      replicas: 1
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  app_data:
+
+networks:
+  default:
+    name: uptime-kuma-mt

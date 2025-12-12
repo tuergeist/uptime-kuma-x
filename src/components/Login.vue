@@ -37,6 +37,12 @@
                 <div v-if="res && !res.ok" class="alert alert-danger mt-3" role="alert">
                     {{ $t(res.msg) }}
                 </div>
+
+                <div class="mt-4">
+                    <router-link to="/signup" class="text-decoration-none">
+                        {{ $t("Don't have an account?") }} {{ $t("Sign up") }}
+                    </router-link>
+                </div>
             </form>
         </div>
     </div>

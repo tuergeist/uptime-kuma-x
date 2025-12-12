@@ -1,7 +1,7 @@
 <template>
     <form @submit.prevent="submit">
         <div ref="modal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 id="exampleModalLabel" class="modal-title">

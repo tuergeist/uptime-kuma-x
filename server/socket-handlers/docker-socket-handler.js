@@ -13,7 +13,7 @@ module.exports.dockerSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let dockerHostBean = await DockerHost.save(dockerHost, dockerHostID, socket.userID);
+            let dockerHostBean = await DockerHost.save(dockerHost, dockerHostID, socket.userID, socket.tenantId || 1);
             await sendDockerHostList(socket);
 
             callback({
@@ -35,7 +35,7 @@ module.exports.dockerSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            await DockerHost.delete(dockerHostID, socket.userID);
+            await DockerHost.delete(dockerHostID, socket.userID, socket.tenantId || 1);
             await sendDockerHostList(socket);
 
             callback({

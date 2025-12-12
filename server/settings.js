@@ -51,9 +51,9 @@ class Settings {
             return v;
         }
 
-        let value = await R.getCell("SELECT `value` FROM setting WHERE `key` = ? ", [
-            key,
-        ]);
+        // Use knex directly for PostgreSQL compatibility (R.getCell adds parameterized LIMIT)
+        let result = await R.knex("setting").select("value").where("key", key).first();
+        let value = result ? result.value : null;
 
         try {
             const v = JSON.parse(value);
@@ -78,8 +78,8 @@ class Settings {
      * @returns {Promise<void>}
      */
     static async set(key, value, type = null) {
-
-        let bean = await R.findOne("setting", " `key` = ? ", [
+        // Use knex-style query for PostgreSQL compatibility
+        let bean = await R.findOne("setting", " key = ? ", [
             key,
         ]);
         if (!bean) {
@@ -99,9 +99,8 @@ class Settings {
      * @returns {Promise<Bean>} Settings
      */
     static async getSettings(type) {
-        let list = await R.getAll("SELECT `key`, `value` FROM setting WHERE `type` = ? ", [
-            type,
-        ]);
+        // Use knex for PostgreSQL compatibility
+        let list = await R.knex("setting").select("key", "value").where("type", type);
 
         let result = {};
 
@@ -128,7 +127,8 @@ class Settings {
         let promiseList = [];
 
         for (let key of keyList) {
-            let bean = await R.findOne("setting", " `key` = ? ", [
+            // Use standard SQL for PostgreSQL compatibility
+            let bean = await R.findOne("setting", " key = ? ", [
                 key
             ]);
 

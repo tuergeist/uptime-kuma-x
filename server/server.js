@@ -155,8 +155,55 @@ const { resetChrome } = require("./monitor-types/real-browser-monitor-type");
 const { EmbeddedMariaDB } = require("./embedded-mariadb");
 const { SetupDatabase } = require("./setup-database");
 const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler");
+const { registrationSocketHandler } = require("./socket-handlers/registration-socket-handler");
+const { teamSocketHandler } = require("./socket-handlers/team-socket-handler");
+
+// Multi-tenancy
+const { resolveTenant } = require("./middleware/tenant");
+const { joinTenantRooms } = require("./utils/tenant-emit");
 
 app.use(express.json());
+
+// Health check endpoints for Kubernetes probes (before other middleware)
+app.get("/health", (req, res) => {
+    // Liveness probe - just check if process is running
+    res.status(200).json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+    });
+});
+
+app.get("/ready", async (req, res) => {
+    // Readiness probe - check if app can handle requests
+    try {
+        const Database = require("./database");
+        const { R } = require("redbean-node");
+
+        // Check database connection
+        if (!Database.connected) {
+            return res.status(503).json({
+                status: "not_ready",
+                reason: "database_not_connected",
+                timestamp: new Date().toISOString(),
+            });
+        }
+
+        // Simple query to verify DB is responsive
+        await R.getCell("SELECT 1");
+
+        res.status(200).json({
+            status: "ready",
+            database: "connected",
+            timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: "not_ready",
+            reason: error.message,
+            timestamp: new Date().toISOString(),
+        });
+    }
+});
 
 // Global Middleware
 app.use(function (req, res, next) {
@@ -166,6 +213,9 @@ app.use(function (req, res, next) {
     res.removeHeader("X-Powered-By");
     next();
 });
+
+// Tenant Resolution Middleware (multi-tenancy)
+app.use(resolveTenant);
 
 /**
  * Show Setup Page
@@ -354,7 +404,7 @@ let needSetup = false;
 
                 log.info("auth", "Username from JWT: " + decoded.username);
 
-                let user = await R.findOne("user", " username = ? AND active = 1 ", [
+                let user = await R.findOne("user", " username = ? AND active = true ", [
                     decoded.username,
                 ]);
 
@@ -420,7 +470,8 @@ let needSetup = false;
             let user = await login(data.username, data.password);
 
             if (user) {
-                if (user.twofa_status === 0) {
+                // Use loose equality for PostgreSQL boolean compatibility (false vs 0)
+                if (!user.twofa_status) {
                     await afterLogin(socket, user);
 
                     log.info("auth", `Successfully logged in user ${data.username}. IP=${clientIP}`);
@@ -431,7 +482,7 @@ let needSetup = false;
                     });
                 }
 
-                if (user.twofa_status === 1 && !data.token) {
+                if (user.twofa_status && !data.token) {
 
                     log.info("auth", `2FA token required for user ${data.username}. IP=${clientIP}`);
 
@@ -446,7 +497,8 @@ let needSetup = false;
                     if (user.twofa_last_token !== data.token && verify) {
                         await afterLogin(socket, user);
 
-                        await R.exec("UPDATE `user` SET twofa_last_token = ? WHERE id = ? ", [
+                        // Use double quotes for PostgreSQL compatibility ("user" is reserved)
+                        await R.exec("UPDATE \"user\" SET twofa_last_token = ? WHERE id = ? ", [
                             data.token,
                             socket.userID,
                         ]);
@@ -504,11 +556,12 @@ let needSetup = false;
                 checkLogin(socket);
                 await doubleCheckPassword(socket, currentPassword);
 
-                let user = await R.findOne("user", " id = ? AND active = 1 ", [
+                let user = await R.findOne("user", " id = ? AND active = true ", [
                     socket.userID,
                 ]);
 
-                if (user.twofa_status === 0) {
+                // Use loose equality for PostgreSQL boolean compatibility
+                if (!user.twofa_status) {
                     let newSecret = genSecret();
                     let encodedSecret = base32.encode(newSecret);
 
@@ -519,7 +572,8 @@ let needSetup = false;
 
                     let uri = `otpauth://totp/Uptime%20Kuma:${user.username}?secret=${encodedSecret}`;
 
-                    await R.exec("UPDATE `user` SET twofa_secret = ? WHERE id = ? ", [
+                    // Use double quotes for PostgreSQL compatibility ("user" is reserved)
+                    await R.exec("UPDATE \"user\" SET twofa_secret = ? WHERE id = ? ", [
                         newSecret,
                         socket.userID,
                     ]);
@@ -554,7 +608,8 @@ let needSetup = false;
                 checkLogin(socket);
                 await doubleCheckPassword(socket, currentPassword);
 
-                await R.exec("UPDATE `user` SET twofa_status = 1 WHERE id = ? ", [
+                // Use double quotes and true for PostgreSQL compatibility
+                await R.exec("UPDATE \"user\" SET twofa_status = true WHERE id = ? ", [
                     socket.userID,
                 ]);
 
@@ -611,7 +666,7 @@ let needSetup = false;
                 checkLogin(socket);
                 await doubleCheckPassword(socket, currentPassword);
 
-                let user = await R.findOne("user", " id = ? AND active = 1 ", [
+                let user = await R.findOne("user", " id = ? AND active = true ", [
                     socket.userID,
                 ]);
 
@@ -643,11 +698,12 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let user = await R.findOne("user", " id = ? AND active = 1 ", [
+                let user = await R.findOne("user", " id = ? AND active = true ", [
                     socket.userID,
                 ]);
 
-                if (user.twofa_status === 1) {
+                // Use loose equality for PostgreSQL boolean compatibility
+                if (user.twofa_status) {
                     callback({
                         ok: true,
                         status: true,
@@ -676,7 +732,8 @@ let needSetup = false;
                     throw new Error("Password is too weak. It should contain alphabetic and numeric characters. It must be at least 6 characters in length.");
                 }
 
-                if ((await R.knex("user").count("id as count").first()).count !== 0) {
+                const existingUserCount = parseInt((await R.knex("user").count("id as count").first()).count);
+                if (existingUserCount !== 0) {
                     throw new Error("Uptime Kuma has been initialized. If you want to run setup again, please delete the database.");
                 }
 
@@ -741,17 +798,51 @@ let needSetup = false;
 
                 bean.import(monitor);
                 bean.user_id = socket.userID;
+                bean.tenant_id = socket.tenantId || 1;
 
                 bean.validate();
 
                 await R.store(bean);
+
+                // For PostgreSQL, bean.id might not be set after store - fetch it
+                if (!bean.id) {
+                    log.debug("monitor", "bean.id not set after store, fetching last insert");
+
+                    // Wait a brief moment for the transaction to be visible
+                    await new Promise(resolve => setTimeout(resolve, 50));
+
+                    // Use R.getAll instead of R.getRow since we know it works with our patch
+                    let retries = 3;
+                    let rows = [];
+                    while (retries > 0 && rows.length === 0) {
+                        rows = await R.getAll(
+                            "SELECT id FROM monitor WHERE user_id = ? AND tenant_id = ? ORDER BY id DESC LIMIT 1",
+                            [socket.userID, socket.tenantId || 1]
+                        );
+                        if (rows.length > 0) {
+                            break;
+                        }
+                        retries--;
+                        if (retries > 0) {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        }
+                    }
+
+                    if (rows.length > 0 && rows[0].id) {
+                        bean.id = rows[0].id;
+                        log.debug("monitor", `Fetched bean.id from getAll: ${bean.id}`);
+                    } else {
+                        log.error("monitor", `Failed to fetch monitor ID after retries. Rows: ${JSON.stringify(rows)}`);
+                        throw new Error("Failed to retrieve monitor ID after creation");
+                    }
+                }
 
                 await updateMonitorNotification(bean.id, notificationIDList);
 
                 await server.sendUpdateMonitorIntoList(socket, bean.id);
 
                 if (monitor.active !== false) {
-                    await startMonitor(socket.userID, bean.id);
+                    await startMonitor(socket.userID, bean.id, socket.tenantId || 1);
                 }
 
                 log.info("monitor", `Added Monitor: ${bean.id} User ID: ${socket.userID}`);
@@ -780,9 +871,9 @@ let needSetup = false;
                 let removeGroupChildren = false;
                 checkLogin(socket);
 
-                let bean = await R.findOne("monitor", " id = ? ", [ monitor.id ]);
+                let bean = await R.findOne("monitor", " id = ? AND tenant_id = ? ", [ monitor.id, socket.tenantId || 1 ]);
 
-                if (bean.user_id !== socket.userID) {
+                if (!bean || bean.user_id !== socket.userID) {
                     throw new Error("Permission denied.");
                 }
 
@@ -917,7 +1008,7 @@ let needSetup = false;
                 await updateMonitorNotification(bean.id, monitor.notificationIDList);
 
                 if (await Monitor.isActive(bean.id, bean.active)) {
-                    await restartMonitor(socket.userID, bean.id);
+                    await restartMonitor(socket.userID, bean.id, socket.tenantId || 1);
                 }
 
                 await server.sendUpdateMonitorIntoList(socket, bean.id);
@@ -960,9 +1051,10 @@ let needSetup = false;
 
                 log.info("monitor", `Get Monitor: ${monitorID} User ID: ${socket.userID}`);
 
-                let monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [
+                let monitor = await R.findOne("monitor", " id = ? AND user_id = ? AND tenant_id = ? ", [
                     monitorID,
                     socket.userID,
+                    socket.tenantId || 1,
                 ]);
                 const monitorData = [{ id: monitor.id,
                     active: monitor.active
@@ -996,11 +1088,12 @@ let needSetup = false;
                 let list = await R.getAll(`
                     SELECT *
                     FROM heartbeat
-                    WHERE monitor_id = ?
+                    WHERE monitor_id = ? AND tenant_id = ?
                       AND time > ${sqlHourOffset}
                     ORDER BY time ASC
                 `, [
                     monitorID,
+                    socket.tenantId || 1,
                     -period,
                 ]);
 
@@ -1020,7 +1113,7 @@ let needSetup = false;
         socket.on("resumeMonitor", async (monitorID, callback) => {
             try {
                 checkLogin(socket);
-                await startMonitor(socket.userID, monitorID);
+                await startMonitor(socket.userID, monitorID, socket.tenantId || 1);
                 await server.sendUpdateMonitorIntoList(socket, monitorID);
 
                 callback({
@@ -1040,7 +1133,7 @@ let needSetup = false;
         socket.on("pauseMonitor", async (monitorID, callback) => {
             try {
                 checkLogin(socket);
-                await pauseMonitor(socket.userID, monitorID);
+                await pauseMonitor(socket.userID, monitorID, socket.tenantId || 1);
                 await server.sendUpdateMonitorIntoList(socket, monitorID);
 
                 callback({
@@ -1070,9 +1163,10 @@ let needSetup = false;
                 const startTime = Date.now();
 
                 // Check if this is a group monitor
-                const monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [
+                const monitor = await R.findOne("monitor", " id = ? AND user_id = ? AND tenant_id = ? ", [
                     monitorID,
                     socket.userID,
+                    socket.tenantId || 1,
                 ]);
 
                 // Log with context about deletion type
@@ -1094,7 +1188,7 @@ let needSetup = false;
                         // Delete all child monitors recursively
                         if (children && children.length > 0) {
                             for (const child of children) {
-                                await Monitor.deleteMonitorRecursively(child.id, socket.userID);
+                                await Monitor.deleteMonitorRecursively(child.id, socket.userID, socket.tenantId || 1);
                                 await server.sendDeleteMonitorFromList(socket, child.id);
                             }
                         }
@@ -1112,7 +1206,7 @@ let needSetup = false;
                 }
 
                 // Delete the monitor itself
-                await Monitor.deleteMonitor(monitorID, socket.userID);
+                await Monitor.deleteMonitor(monitorID, socket.userID, socket.tenantId || 1);
 
                 // Fix #2880
                 apicache.clear();
@@ -1171,7 +1265,19 @@ let needSetup = false;
                 let bean = R.dispense("tag");
                 bean.name = tag.name;
                 bean.color = tag.color;
+                bean.tenant_id = socket.tenantId || 1;
                 await R.store(bean);
+
+                // For PostgreSQL, bean.id might not be set after store - fetch it
+                if (!bean.id) {
+                    const rows = await R.getAll(
+                        "SELECT id FROM tag WHERE name = ? AND tenant_id = ? ORDER BY id DESC LIMIT 1",
+                        [tag.name, socket.tenantId || 1]
+                    );
+                    if (rows.length > 0) {
+                        bean.id = rows[0].id;
+                    }
+                }
 
                 callback({
                     ok: true,
@@ -1190,7 +1296,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let bean = await R.findOne("tag", " id = ? ", [ tag.id ]);
+                let bean = await R.findOne("tag", " id = ? AND tenant_id = ? ", [ tag.id, socket.tenantId || 1 ]);
                 if (bean == null) {
                     callback({
                         ok: false,
@@ -1222,7 +1328,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await R.exec("DELETE FROM tag WHERE id = ? ", [ tagID ]);
+                await R.exec("DELETE FROM tag WHERE id = ? AND tenant_id = ? ", [ tagID, socket.tenantId || 1 ]);
 
                 callback({
                     ok: true,
@@ -1316,10 +1422,11 @@ let needSetup = false;
 
                 let count;
                 if (monitorID == null) {
-                    count = await R.count("heartbeat", "important = 1");
+                    count = await R.count("heartbeat", "important = true AND tenant_id = ?", [socket.tenantId || 1]);
                 } else {
-                    count = await R.count("heartbeat", "monitor_id = ? AND important = 1", [
+                    count = await R.count("heartbeat", "monitor_id = ? AND important = true AND tenant_id = ?", [
                         monitorID,
+                        socket.tenantId || 1,
                     ]);
                 }
 
@@ -1342,23 +1449,27 @@ let needSetup = false;
                 let list;
                 if (monitorID == null) {
                     list = await R.find("heartbeat", `
-                        important = 1
+                        important = true
+                        AND tenant_id = ?
                         ORDER BY time DESC
                         LIMIT ?
                         OFFSET ?
                     `, [
+                        socket.tenantId || 1,
                         count,
                         offset,
                     ]);
                 } else {
                     list = await R.find("heartbeat", `
                         monitor_id = ?
-                        AND important = 1
+                        AND tenant_id = ?
+                        AND important = true
                         ORDER BY time DESC
                         LIMIT ?
                         OFFSET ?
                     `, [
                         monitorID,
+                        socket.tenantId || 1,
                         count,
                         offset,
                     ]);
@@ -1498,7 +1609,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let notificationBean = await Notification.save(notification, notificationID, socket.userID);
+                let notificationBean = await Notification.save(notification, notificationID, socket.userID, socket.tenantId || 1);
                 await sendNotificationList(socket);
 
                 callback({
@@ -1520,7 +1631,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await Notification.delete(notificationID, socket.userID);
+                await Notification.delete(notificationID, socket.userID, socket.tenantId || 1);
                 await sendNotificationList(socket);
 
                 callback({
@@ -1626,7 +1737,7 @@ let needSetup = false;
                 await UptimeCalculator.clearStatistics(monitorID);
 
                 if (monitorID in server.monitorList) {
-                    await restartMonitor(socket.userID, monitorID);
+                    await restartMonitor(socket.userID, monitorID, socket.tenantId || 1);
                 }
 
                 await sendHeartbeatList(socket, monitorID, true, true);
@@ -1653,7 +1764,7 @@ let needSetup = false;
 
                 // Restart all monitors to reset the stats
                 for (let monitorID in server.monitorList) {
-                    await restartMonitor(socket.userID, monitorID);
+                    await restartMonitor(socket.userID, monitorID, socket.tenantId || 1);
                 }
 
                 callback({
@@ -1679,6 +1790,8 @@ let needSetup = false;
         remoteBrowserSocketHandler(socket);
         generalSocketHandler(socket, server);
         chartSocketHandler(socket);
+        registrationSocketHandler(socket, server);
+        teamSocketHandler(socket, server, io);
 
         log.debug("server", "added all socket handlers");
 
@@ -1687,7 +1800,10 @@ let needSetup = false;
         // ***************************
 
         log.debug("auth", "check auto login");
-        if (await setting("disableAuth")) {
+        if (needSetup) {
+            // Setup already emitted above, don't emit loginRequired
+            log.debug("auth", "need setup, skip login check");
+        } else if (await setting("disableAuth")) {
             log.info("auth", "Disabled Auth: auto login to admin");
             await afterLogin(socket, await R.findOne("user"));
             socket.emit("autoLogin");
@@ -1753,13 +1869,15 @@ async function updateMonitorNotification(monitorID, notificationIDList) {
  * Check if a given user owns a specific monitor
  * @param {number} userID ID of user to check
  * @param {number} monitorID ID of monitor to check
+ * @param {number} tenantId ID of tenant (defaults to 1)
  * @returns {Promise<void>}
  * @throws {Error} The specified user does not own the monitor
  */
-async function checkOwner(userID, monitorID) {
-    let row = await R.getRow("SELECT id FROM monitor WHERE id = ? AND user_id = ? ", [
+async function checkOwner(userID, monitorID, tenantId = 1) {
+    let row = await R.getRow("SELECT id FROM monitor WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
         monitorID,
         userID,
+        tenantId,
     ]);
 
     if (! row) {
@@ -1776,7 +1894,11 @@ async function checkOwner(userID, monitorID) {
  */
 async function afterLogin(socket, user) {
     socket.userID = user.id;
-    socket.join(user.id);
+    socket.tenantId = user.tenant_id || 1; // Fallback for migration period
+    socket.userRole = user.role || "member"; // For role-based access control
+
+    // Join tenant-specific rooms (new multi-tenancy pattern)
+    joinTenantRooms(socket, socket.tenantId, user.id);
 
     let monitorList = await server.sendMonitorList(socket);
     await Promise.allSettled([
@@ -1822,7 +1944,8 @@ async function initDatabase(testMode = false) {
     // Patch the database
     await Database.patch(port, hostname);
 
-    let jwtSecretBean = await R.findOne("setting", " `key` = ? ", [
+    // Use standard SQL for PostgreSQL compatibility (backticks are MySQL-specific)
+    let jwtSecretBean = await R.findOne("setting", " key = ? ", [
         "jwtSecret",
     ]);
 
@@ -1835,7 +1958,8 @@ async function initDatabase(testMode = false) {
     }
 
     // If there is no record in user table, it is a new Uptime Kuma instance, need to setup
-    if ((await R.knex("user").count("id as count").first()).count === 0) {
+    const userCount = parseInt((await R.knex("user").count("id as count").first()).count);
+    if (userCount === 0) {
         log.info("server", "No user, need setup");
         needSetup = true;
     }
@@ -1847,20 +1971,24 @@ async function initDatabase(testMode = false) {
  * Start the specified monitor
  * @param {number} userID ID of user who owns monitor
  * @param {number} monitorID ID of monitor to start
+ * @param {number} tenantId ID of tenant
  * @returns {Promise<void>}
  */
-async function startMonitor(userID, monitorID) {
-    await checkOwner(userID, monitorID);
+async function startMonitor(userID, monitorID, tenantId = 1) {
+    await checkOwner(userID, monitorID, tenantId);
 
     log.info("manage", `Resume Monitor: ${monitorID} User ID: ${userID}`);
 
-    await R.exec("UPDATE monitor SET active = 1 WHERE id = ? AND user_id = ? ", [
+    // Use true instead of 1 for PostgreSQL boolean compatibility
+    await R.exec("UPDATE monitor SET active = true WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
         monitorID,
         userID,
+        tenantId,
     ]);
 
-    let monitor = await R.findOne("monitor", " id = ? ", [
+    let monitor = await R.findOne("monitor", " id = ? AND tenant_id = ? ", [
         monitorID,
+        tenantId,
     ]);
 
     if (monitor.id in server.monitorList) {
@@ -1875,26 +2003,29 @@ async function startMonitor(userID, monitorID) {
  * Restart a given monitor
  * @param {number} userID ID of user who owns monitor
  * @param {number} monitorID ID of monitor to start
+ * @param {number} tenantId ID of tenant
  * @returns {Promise<void>}
  */
-async function restartMonitor(userID, monitorID) {
-    return await startMonitor(userID, monitorID);
+async function restartMonitor(userID, monitorID, tenantId = 1) {
+    return await startMonitor(userID, monitorID, tenantId);
 }
 
 /**
  * Pause a given monitor
  * @param {number} userID ID of user who owns monitor
  * @param {number} monitorID ID of monitor to start
+ * @param {number} tenantId ID of tenant
  * @returns {Promise<void>}
  */
-async function pauseMonitor(userID, monitorID) {
-    await checkOwner(userID, monitorID);
+async function pauseMonitor(userID, monitorID, tenantId = 1) {
+    await checkOwner(userID, monitorID, tenantId);
 
     log.info("manage", `Pause Monitor: ${monitorID} User ID: ${userID}`);
 
-    await R.exec("UPDATE monitor SET active = 0 WHERE id = ? AND user_id = ? ", [
+    await R.exec("UPDATE monitor SET active = 0 WHERE id = ? AND user_id = ? AND tenant_id = ? ", [
         monitorID,
         userID,
+        tenantId,
     ]);
 
     if (monitorID in server.monitorList) {
@@ -1908,7 +2039,8 @@ async function pauseMonitor(userID, monitorID) {
  * @returns {Promise<void>}
  */
 async function startMonitors() {
-    let list = await R.find("monitor", " active = 1 ");
+    // Use true instead of 1 for PostgreSQL boolean compatibility (SQLite accepts both)
+    let list = await R.find("monitor", " active = true ");
 
     for (let monitor of list) {
         server.monitorList[monitor.id] = monitor;

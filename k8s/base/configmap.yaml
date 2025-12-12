@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uptime-kuma-config
+  namespace: uptimehive
+  labels:
+    app.kubernetes.io/name: uptime-kuma
+    app.kubernetes.io/part-of: uptimehive
+data:
+  UPTIME_KUMA_DB_TYPE: "postgres"
+  UPTIME_KUMA_DB_PORT: "5432"
+  UPTIME_KUMA_DB_NAME: "uptime_kuma"
+  MULTI_TENANT: "true"
+  NODE_ENV: "production"

@@ -13,6 +13,21 @@ const viteCompressionFilter = /\.(js|mjs|json|css|html|svg)$/i;
 export default defineConfig({
     server: {
         port: 3000,
+        proxy: {
+            "/socket.io": {
+                target: "http://localhost:3001",
+                ws: true,
+            },
+            "/api": {
+                target: "http://localhost:3001",
+            },
+            "/upload": {
+                target: "http://localhost:3001",
+            },
+            "/icon.svg": {
+                target: "http://localhost:3001",
+            },
+        },
     },
     define: {
         "FRONTEND_VERSION": JSON.stringify(process.env.npm_package_version),

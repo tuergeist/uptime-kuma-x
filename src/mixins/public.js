@@ -7,7 +7,16 @@ const env = process.env.NODE_ENV || "production";
 if (env === "development" && isDevContainer()) {
     axios.defaults.baseURL = location.protocol + "//" + getDevContainerServerHostname();
 } else if (env === "development" || localStorage.dev === "dev") {
-    axios.defaults.baseURL = location.protocol + "//" + location.hostname + ":3001";
+    // In development, use Vite proxy (same origin) if available
+    // If current port ends in 000, assume Vite proxy is configured
+    const currentPort = parseInt(location.port) || (location.protocol === "https:" ? 443 : 80);
+    if (currentPort === 3000 || currentPort % 1000 === 0) {
+        // Use Vite proxy - no baseURL needed (same origin)
+        axios.defaults.baseURL = "";
+    } else {
+        // Direct connection to backend port
+        axios.defaults.baseURL = location.protocol + "//" + location.hostname + ":3001";
+    }
 }
 
 export default {

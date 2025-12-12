@@ -15,7 +15,7 @@ module.exports.remoteBrowserSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let remoteBrowserBean = await RemoteBrowser.save(remoteBrowser, remoteBrowserID, socket.userID);
+            let remoteBrowserBean = await RemoteBrowser.save(remoteBrowser, remoteBrowserID, socket.userID, socket.tenantId || 1);
             await sendRemoteBrowserList(socket);
 
             callback({
@@ -37,7 +37,7 @@ module.exports.remoteBrowserSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            await RemoteBrowser.delete(dockerHostID, socket.userID);
+            await RemoteBrowser.delete(dockerHostID, socket.userID, socket.tenantId || 1);
             await sendRemoteBrowserList(socket);
 
             callback({

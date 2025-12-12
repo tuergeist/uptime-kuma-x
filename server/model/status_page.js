@@ -264,7 +264,8 @@ class StatusPage extends BeanModel {
         const config = await statusPage.toPublicJSON();
 
         // Incident
-        let incident = await R.findOne("incident", " pin = 1 AND active = 1 AND status_page_id = ? ", [
+        // Use true instead of 1 for PostgreSQL boolean compatibility
+        let incident = await R.findOne("incident", " pin = true AND active = true AND status_page_id = ? ", [
             statusPage.id,
         ]);
 
@@ -317,8 +318,9 @@ class StatusPage extends BeanModel {
      */
     static async sendStatusPageList(io, socket) {
         let result = {};
+        const tenantId = socket.tenantId || 1;
 
-        let list = await R.findAll("status_page", " ORDER BY title ");
+        let list = await R.find("status_page", " 1=1 AND tenant_id = ? ORDER BY title ", [tenantId]);
 
         for (let item of list) {
             result[item.id] = await item.toJSON();
@@ -440,11 +442,13 @@ class StatusPage extends BeanModel {
     /**
      * Convert slug to status page ID
      * @param {string} slug Status page slug
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<number>} ID of status page
      */
-    static async slugToID(slug) {
-        return await R.getCell("SELECT id FROM status_page WHERE slug = ? ", [
-            slug
+    static async slugToID(slug, tenantId = 1) {
+        return await R.getCell("SELECT id FROM status_page WHERE slug = ? AND tenant_id = ? ", [
+            slug,
+            tenantId,
         ]);
     }
 

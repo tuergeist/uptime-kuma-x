@@ -11,7 +11,23 @@ const checkVersion = require("./check-version");
 const Database = require("./database");
 
 /**
+ * Ensure result is an array (PostgreSQL compatibility)
+ * @param {any} result Result from R.find or R.getAll
+ * @returns {Array} Array result
+ */
+function ensureArray(result) {
+    if (!result) {
+        return [];
+    }
+    if (!Array.isArray(result)) {
+        return [];
+    }
+    return result;
+}
+
+/**
  * Send list of notification providers to client
+ * All team members can see all notifications belonging to their tenant.
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of notifications
  */
@@ -19,14 +35,16 @@ async function sendNotificationList(socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    let list = await R.find("notification", " user_id = ? ", [
-        socket.userID,
-    ]);
+    // Filter by tenant_id only - all team members see all tenant notifications
+    let list = ensureArray(await R.find("notification", " tenant_id = ? ", [
+        socket.tenantId || 1,
+    ]));
 
     for (let bean of list) {
         let notificationObject = bean.export();
-        notificationObject.isDefault = (notificationObject.isDefault === 1);
-        notificationObject.active = (notificationObject.active === 1);
+        // Handle both SQLite (integer 0/1) and PostgreSQL (boolean true/false)
+        notificationObject.isDefault = (notificationObject.isDefault === 1 || notificationObject.isDefault === true);
+        notificationObject.active = (notificationObject.active === 1 || notificationObject.active === true);
         result.push(notificationObject);
     }
 
@@ -46,14 +64,15 @@ async function sendNotificationList(socket) {
  * @returns {Promise<void>}
  */
 async function sendHeartbeatList(socket, monitorID, toUser = false, overwrite = false) {
-    let list = await R.getAll(`
+    let list = ensureArray(await R.getAll(`
         SELECT * FROM heartbeat
-        WHERE monitor_id = ?
+        WHERE monitor_id = ? AND tenant_id = ?
         ORDER BY time DESC
         LIMIT 100
     `, [
         monitorID,
-    ]);
+        socket.tenantId || 1,
+    ]));
 
     let result = list.reverse();
 
@@ -75,14 +94,16 @@ async function sendHeartbeatList(socket, monitorID, toUser = false, overwrite = 
 async function sendImportantHeartbeatList(socket, monitorID, toUser = false, overwrite = false) {
     const timeLogger = new TimeLogger();
 
-    let list = await R.find("heartbeat", `
+    let list = ensureArray(await R.find("heartbeat", `
         monitor_id = ?
-        AND important = 1
+        AND tenant_id = ?
+        AND important = true
         ORDER BY time DESC
         LIMIT 500
     `, [
         monitorID,
-    ]);
+        socket.tenantId || 1,
+    ]));
 
     timeLogger.print(`[Monitor: ${monitorID}] sendImportantHeartbeatList`);
 
@@ -96,13 +117,15 @@ async function sendImportantHeartbeatList(socket, monitorID, toUser = false, ove
 
 /**
  * Emit proxy list to client
+ * All team members can see all proxies belonging to their tenant.
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of proxies
  */
 async function sendProxyList(socket) {
     const timeLogger = new TimeLogger();
 
-    const list = await R.find("proxy", " user_id = ? ", [ socket.userID ]);
+    // Filter by tenant_id only - all team members see all tenant proxies
+    let list = ensureArray(await R.find("proxy", " tenant_id = ? ", [ socket.tenantId || 1 ]));
     io.to(socket.userID).emit("proxyList", list.map(bean => bean.export()));
 
     timeLogger.print("Send Proxy List");
@@ -112,6 +135,7 @@ async function sendProxyList(socket) {
 
 /**
  * Emit API key list to client
+ * All team members can see all API keys belonging to their tenant.
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<void>}
  */
@@ -119,11 +143,12 @@ async function sendAPIKeyList(socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    const list = await R.find(
+    // Filter by tenant_id only - all team members see all tenant API keys
+    const list = ensureArray(await R.find(
         "api_key",
-        "user_id=?",
-        [ socket.userID ],
-    );
+        "tenant_id=?",
+        [ socket.tenantId || 1 ],
+    ));
 
     for (let bean of list) {
         result.push(bean.toPublicJSON());
@@ -167,6 +192,7 @@ async function sendInfo(socket, hideVersion = false) {
 
 /**
  * Send list of docker hosts to client
+ * All team members can see all docker hosts belonging to their tenant.
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of docker hosts
  */
@@ -174,9 +200,10 @@ async function sendDockerHostList(socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    let list = await R.find("docker_host", " user_id = ? ", [
-        socket.userID,
-    ]);
+    // Filter by tenant_id only - all team members see all tenant docker hosts
+    let list = ensureArray(await R.find("docker_host", " tenant_id = ? ", [
+        socket.tenantId || 1,
+    ]));
 
     for (let bean of list) {
         result.push(bean.toJSON());
@@ -190,17 +217,19 @@ async function sendDockerHostList(socket) {
 }
 
 /**
- * Send list of docker hosts to client
+ * Send list of remote browsers to client
+ * All team members can see all remote browsers belonging to their tenant.
  * @param {Socket} socket Socket.io socket instance
- * @returns {Promise<Bean[]>} List of docker hosts
+ * @returns {Promise<Bean[]>} List of remote browsers
  */
 async function sendRemoteBrowserList(socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    let list = await R.find("remote_browser", " user_id = ? ", [
-        socket.userID,
-    ]);
+    // Filter by tenant_id only - all team members see all tenant remote browsers
+    let list = ensureArray(await R.find("remote_browser", " tenant_id = ? ", [
+        socket.tenantId || 1,
+    ]));
 
     for (let bean of list) {
         result.push(bean.toJSON());

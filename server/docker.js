@@ -17,13 +17,14 @@ class DockerHost {
      * @param {object} dockerHost Docker host to save
      * @param {?number} dockerHostID ID of the docker host to update
      * @param {number} userID ID of the user who adds the docker host
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<Bean>} Updated docker host
      */
-    static async save(dockerHost, dockerHostID, userID) {
+    static async save(dockerHost, dockerHostID, userID, tenantId = 1) {
         let bean;
 
         if (dockerHostID) {
-            bean = await R.findOne("docker_host", " id = ? AND user_id = ? ", [ dockerHostID, userID ]);
+            bean = await R.findOne("docker_host", " id = ? AND user_id = ? AND tenant_id = ? ", [ dockerHostID, userID, tenantId ]);
 
             if (!bean) {
                 throw new Error("docker host not found");
@@ -31,6 +32,7 @@ class DockerHost {
 
         } else {
             bean = R.dispense("docker_host");
+            bean.tenant_id = tenantId;
         }
 
         bean.user_id = userID;
@@ -47,17 +49,18 @@ class DockerHost {
      * Delete a Docker host
      * @param {number} dockerHostID ID of the Docker host to delete
      * @param {number} userID ID of the user who created the Docker host
+     * @param {number} tenantId ID of tenant (defaults to 1)
      * @returns {Promise<void>}
      */
-    static async delete(dockerHostID, userID) {
-        let bean = await R.findOne("docker_host", " id = ? AND user_id = ? ", [ dockerHostID, userID ]);
+    static async delete(dockerHostID, userID, tenantId = 1) {
+        let bean = await R.findOne("docker_host", " id = ? AND user_id = ? AND tenant_id = ? ", [ dockerHostID, userID, tenantId ]);
 
         if (!bean) {
             throw new Error("docker host not found");
         }
 
-        // Delete removed proxy from monitors if exists
-        await R.exec("UPDATE monitor SET docker_host = null WHERE docker_host = ?", [ dockerHostID ]);
+        // Delete removed docker host from monitors if exists (within tenant)
+        await R.exec("UPDATE monitor SET docker_host = null WHERE docker_host = ? AND tenant_id = ?", [ dockerHostID, tenantId ]);
 
         await R.trash(bean);
     }

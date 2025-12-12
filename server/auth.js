@@ -18,14 +18,15 @@ exports.login = async function (username, password) {
         return null;
     }
 
-    let user = await R.findOne("user", "TRIM(username) = ? AND active = 1 ", [
+    let user = await R.findOne("user", "TRIM(username) = ? AND active = true ", [
         username.trim(),
     ]);
 
     if (user && passwordHash.verify(password, user.password)) {
         // Upgrade the hash to bcrypt
         if (passwordHash.needRehash(user.password)) {
-            await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
+            // Use double quotes for PostgreSQL compatibility ("user" is reserved)
+            await R.exec("UPDATE \"user\" SET password = ? WHERE id = ? ", [
                 await passwordHash.generate(password),
                 user.id,
             ]);

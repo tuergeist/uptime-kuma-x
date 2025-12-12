@@ -113,6 +113,9 @@ export default {
                 "api-keys": {
                     title: this.$t("API Keys")
                 },
+                team: {
+                    title: this.$t("Team Members"),
+                },
                 proxies: {
                     title: this.$t("Proxies"),
                 },

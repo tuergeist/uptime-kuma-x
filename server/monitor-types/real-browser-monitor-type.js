@@ -100,8 +100,8 @@ async function getBrowser() {
  * @param {integer} userId User ID
  * @returns {Promise<Browser>} The browser
  */
-async function getRemoteBrowser(remoteBrowserID, userId) {
-    let remoteBrowser = await RemoteBrowser.get(remoteBrowserID, userId);
+async function getRemoteBrowser(remoteBrowserID, userId, tenantId = 1) {
+    let remoteBrowser = await RemoteBrowser.get(remoteBrowserID, userId, tenantId);
     log.debug("MONITOR", `Using remote browser: ${remoteBrowser.name} (${remoteBrowser.id})`);
     browser = await chromium.connect(remoteBrowser.url);
     return browser;
@@ -236,7 +236,7 @@ class RealBrowserMonitorType extends MonitorType {
      * @inheritdoc
      */
     async check(monitor, heartbeat, server) {
-        const browser = monitor.remote_browser ? await getRemoteBrowser(monitor.remote_browser, monitor.user_id) : await getBrowser();
+        const browser = monitor.remote_browser ? await getRemoteBrowser(monitor.remote_browser, monitor.user_id, monitor.tenant_id || 1) : await getBrowser();
         const context = await browser.newContext();
         const page = await context.newPage();
 

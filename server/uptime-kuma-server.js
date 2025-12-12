@@ -13,6 +13,9 @@ const childProcessAsync = require("promisify-child-process");
 const path = require("path");
 const axios = require("axios");
 const { isSSL, sslKey, sslCert, sslKeyPassphrase } = require("./config");
+const { PubSubService } = require("./services/pubsub-service");
+const { RedisService } = require("./services/redis-service");
+const { createAdapter } = require("@socket.io/redis-adapter");
 // DO NOT IMPORT HERE IF THE MODULES USED `UptimeKumaServer.getInstance()`, put at the bottom of this file instead.
 
 /**
@@ -201,6 +204,153 @@ class UptimeKumaServer {
         log.debug("DEBUG", "Current Time: " + dayjs.tz().format());
 
         await this.loadMaintenanceList();
+
+        // Initialize Socket.IO Redis adapter for horizontal scaling
+        await this.initSocketIORedisAdapter();
+
+        // Initialize Redis pub/sub for worker mode
+        await this.initRedisPubSub();
+    }
+
+    /**
+     * Initialize Socket.IO Redis adapter for horizontal pod scaling
+     * This allows multiple pods to share Socket.IO connections
+     * @returns {Promise<void>}
+     */
+    async initSocketIORedisAdapter() {
+        if (!RedisService.isConfigured()) {
+            log.info("server", "Redis not configured, Socket.IO running in single-instance mode");
+            return;
+        }
+
+        try {
+            const { createClient } = require("redis");
+            const redisUrl = process.env.REDIS_URL;
+
+            log.info("server", "Initializing Socket.IO Redis adapter for horizontal scaling");
+
+            const pubClient = createClient({ url: redisUrl });
+            const subClient = pubClient.duplicate();
+
+            pubClient.on("error", (err) => {
+                log.error("socket-redis", `Redis pub client error: ${err.message}`);
+            });
+
+            subClient.on("error", (err) => {
+                log.error("socket-redis", `Redis sub client error: ${err.message}`);
+            });
+
+            await Promise.all([pubClient.connect(), subClient.connect()]);
+
+            this.io.adapter(createAdapter(pubClient, subClient));
+
+            log.info("server", "Socket.IO Redis adapter initialized - horizontal scaling enabled");
+        } catch (error) {
+            log.error("server", `Failed to initialize Socket.IO Redis adapter: ${error.message}`);
+            log.warn("server", "Continuing without Redis adapter - horizontal scaling disabled");
+        }
+    }
+
+    /**
+     * Initialize Redis pub/sub for receiving heartbeats from workers
+     * @returns {Promise<void>}
+     */
+    async initRedisPubSub() {
+        // Only initialize if Redis is configured
+        if (!RedisService.isConfigured()) {
+            log.info("server", "Redis not configured, running in single-instance mode");
+            return;
+        }
+
+        // Check if we're running in worker mode or hybrid mode
+        const workerMode = process.env.WORKER_MODE === "true";
+        if (workerMode) {
+            log.info("server", "Worker mode enabled - API server will receive heartbeats from workers via Redis");
+        }
+
+        try {
+            const pubsub = PubSubService.getInstance();
+            await pubsub.init();
+
+            // Subscribe to heartbeats from workers
+            await pubsub.subscribeToHeartbeats((data) => {
+                this.handleRedisHeartbeat(data);
+            });
+
+            // Subscribe to important heartbeats
+            await pubsub.subscribeToImportantHeartbeats((data) => {
+                this.handleRedisImportantHeartbeat(data);
+            });
+
+            // Subscribe to monitor stats
+            await pubsub.subscribeToMonitorStats((data) => {
+                this.handleRedisStats(data);
+            });
+
+            // Subscribe to cert info
+            await pubsub.subscribeToCertInfo((data) => {
+                this.handleRedisCertInfo(data);
+            });
+
+            log.info("server", "Redis pub/sub initialized - ready to receive worker heartbeats");
+
+        } catch (error) {
+            log.error("server", `Failed to initialize Redis pub/sub: ${error.message}`);
+            // Don't fail startup - fall back to single-instance mode
+        }
+    }
+
+    /**
+     * Handle heartbeat received from worker via Redis
+     * @param {object} data Heartbeat data from worker
+     */
+    handleRedisHeartbeat(data) {
+        const { tenantId, monitorId, userId, heartbeat, timestamp } = data;
+
+        // Emit to user's room
+        this.io.to(userId).emit("heartbeat", heartbeat);
+
+        log.debug("server", `Forwarded heartbeat for monitor ${monitorId} to user ${userId}`);
+    }
+
+    /**
+     * Handle important heartbeat received from worker via Redis
+     * @param {object} data Important heartbeat data
+     */
+    handleRedisImportantHeartbeat(data) {
+        const { tenantId, monitorId, userId, heartbeat, isFirstBeat, timestamp } = data;
+
+        // Emit to user's room
+        this.io.to(userId).emit("importantHeartbeat", heartbeat);
+
+        log.debug("server", `Forwarded important heartbeat for monitor ${monitorId} to user ${userId}`);
+    }
+
+    /**
+     * Handle stats update received from worker via Redis
+     * @param {object} data Stats data
+     */
+    handleRedisStats(data) {
+        const { tenantId, monitorId, userId, stats, timestamp } = data;
+
+        // Emit stats update to user
+        this.io.to(userId).emit("avgPing", monitorId, stats.avgPing);
+        this.io.to(userId).emit("uptime", monitorId, stats.uptime24h, stats.uptime30d);
+
+        log.debug("server", `Forwarded stats for monitor ${monitorId} to user ${userId}`);
+    }
+
+    /**
+     * Handle cert info received from worker via Redis
+     * @param {object} data Cert info data
+     */
+    handleRedisCertInfo(data) {
+        const { tenantId, monitorId, userId, certInfo, timestamp } = data;
+
+        // Emit cert info to user
+        this.io.to(userId).emit("certInfo", monitorId, certInfo);
+
+        log.debug("server", `Forwarded cert info for monitor ${monitorId} to user ${userId}`);
     }
 
     /**
@@ -209,8 +359,14 @@ class UptimeKumaServer {
      * @returns {Promise<object>} List of monitors
      */
     async sendMonitorList(socket) {
-        let list = await this.getMonitorJSONList(socket.userID);
+        let list = await this.getMonitorJSONList(socket.userID, null, socket.tenantId || 1);
+
+        // Emit directly to the requesting socket to ensure immediate delivery
+        socket.emit("monitorList", list);
+
+        // Also emit to room for other connections from same user
         this.io.to(socket.userID).emit("monitorList", list);
+
         return list;
     }
 
@@ -221,7 +377,7 @@ class UptimeKumaServer {
      * @returns {Promise<void>}
      */
     async sendUpdateMonitorIntoList(socket, monitorID) {
-        let list = await this.getMonitorJSONList(socket.userID, monitorID);
+        let list = await this.getMonitorJSONList(socket.userID, monitorID, socket.tenantId || 1);
         this.io.to(socket.userID).emit("updateMonitorIntoList", list);
     }
 
@@ -236,17 +392,17 @@ class UptimeKumaServer {
     }
 
     /**
-     * Get a list of monitors for the given user.
-     * @param {string} userID - The ID of the user to get monitors for.
+     * Get a list of monitors for the tenant.
+     * All team members can see all monitors belonging to their tenant.
+     * @param {string} userID - The ID of the user (kept for compatibility, not used for filtering).
      * @param {number} monitorID - The ID of monitor for.
+     * @param {number} tenantId - The ID of the tenant (defaults to 1).
      * @returns {Promise<object>} A promise that resolves to an object with monitor IDs as keys and monitor objects as values.
-     *
-     * Generated by Trelent
      */
-    async getMonitorJSONList(userID, monitorID = null) {
-
-        let query = " user_id = ? ";
-        let queryParams = [ userID ];
+    async getMonitorJSONList(userID, monitorID = null, tenantId = 1) {
+        // Filter by tenant_id only - all team members see all tenant monitors
+        let query = " tenant_id = ? ";
+        let queryParams = [ tenantId ];
 
         if (monitorID) {
             query += "AND id = ? ";
@@ -254,6 +410,11 @@ class UptimeKumaServer {
         }
 
         let monitorList = await R.find("monitor", query + "ORDER BY weight DESC, name", queryParams);
+
+        // Ensure monitorList is an array (PostgreSQL compatibility)
+        if (!Array.isArray(monitorList)) {
+            monitorList = [];
+        }
 
         const monitorData = monitorList.map(monitor => ({
             id: monitor.id,
@@ -263,7 +424,9 @@ class UptimeKumaServer {
         const preloadData = await Monitor.preparePreloadData(monitorData);
 
         const result = {};
-        monitorList.forEach(monitor => result[monitor.id] = monitor.toJSON(preloadData));
+        for (const monitor of monitorList) {
+            result[monitor.id] = monitor.toJSON(preloadData);
+        }
         return result;
     }
 
@@ -273,16 +436,17 @@ class UptimeKumaServer {
      * @returns {Promise<object>} Maintenance list
      */
     async sendMaintenanceList(socket) {
-        return await this.sendMaintenanceListByUserID(socket.userID);
+        return await this.sendMaintenanceListByUserID(socket.userID, socket.tenantId || 1);
     }
 
     /**
      * Send list of maintenances to user
      * @param {number} userID User to send list to
+     * @param {number} tenantId Tenant ID (defaults to 1)
      * @returns {Promise<object>} Maintenance list
      */
-    async sendMaintenanceListByUserID(userID) {
-        let list = await this.getMaintenanceJSONList(userID);
+    async sendMaintenanceListByUserID(userID, tenantId = 1) {
+        let list = await this.getMaintenanceJSONList(userID, tenantId);
         this.io.to(userID).emit("maintenanceList", list);
         return list;
     }
@@ -290,12 +454,17 @@ class UptimeKumaServer {
     /**
      * Get a list of maintenances for the given user.
      * @param {string} userID - The ID of the user to get maintenances for.
+     * @param {number} tenantId - The ID of the tenant (defaults to 1).
      * @returns {Promise<object>} A promise that resolves to an object with maintenance IDs as keys and maintenances objects as values.
      */
-    async getMaintenanceJSONList(userID) {
+    async getMaintenanceJSONList(userID, tenantId = 1) {
         let result = {};
         for (let maintenanceID in this.maintenanceList) {
-            result[maintenanceID] = await this.maintenanceList[maintenanceID].toJSON();
+            const maintenance = this.maintenanceList[maintenanceID];
+            // Filter by tenant_id
+            if (maintenance.tenant_id === tenantId) {
+                result[maintenanceID] = await maintenance.toJSON();
+            }
         }
         return result;
     }
@@ -306,9 +475,7 @@ class UptimeKumaServer {
      * @returns {Promise<void>}
      */
     async loadMaintenanceList(userID) {
-        let maintenanceList = await R.findAll("maintenance", " ORDER BY end_date DESC, title", [
-
-        ]);
+        let maintenanceList = await R.find("maintenance", " 1=1 ORDER BY end_date DESC, title", []);
 
         for (let maintenance of maintenanceList) {
             this.maintenanceList[maintenance.id] = maintenance;

@@ -52,7 +52,8 @@ router.all("/api/push/:pushToken", async (request, response) => {
         let statusString = request.query.status || "up";
         const statusFromParam = (statusString === "up") ? UP : DOWN;
 
-        let monitor = await R.findOne("monitor", " push_token = ? AND active = 1 ", [
+        // Use true instead of 1 for PostgreSQL boolean compatibility
+        let monitor = await R.findOne("monitor", " push_token = ? AND active = true ", [
             pushToken
         ]);
 
