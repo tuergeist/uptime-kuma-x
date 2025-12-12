@@ -5,7 +5,7 @@
                 <div>
                     <object width="64" height="64" data="/icon.svg" />
                     <div style="font-size: 28px; font-weight: bold; margin-top: 5px;">
-                        Uptime Kuma
+                        Uptime Hive
                     </div>
                 </div>
 
@@ -160,7 +160,7 @@ export default {
                     this.$root.loggedIn = true;
                     this.$root.username = this.username;
 
-                    this.$root.toastSuccess("Registration successful! Welcome to Uptime Kuma.");
+                    this.$root.toastSuccess("Registration successful! Welcome to Uptime Hive.");
 
                     // Refresh the page to trigger full login flow
                     setTimeout(() => {

@@ -346,7 +346,7 @@
                 <div v-if="! enableEditMode" class="alert-heading p-2" data-testid="footer-text" v-html="footerHTML"></div>
 
                 <p v-if="config.showPoweredBy" data-testid="powered-by">
-                    {{ $t("Powered by") }} <a target="_blank" rel="noopener noreferrer" href="https://github.com/louislam/uptime-kuma">{{ $t("Uptime Kuma" ) }}</a>
+                    {{ $t("Powered by") }} <a target="_blank" rel="noopener noreferrer" href="https://github.com/louislam/uptime-kuma">{{ $t("Uptime Hive" ) }}</a>
                 </p>
 
                 <div class="refresh-info mb-2">
