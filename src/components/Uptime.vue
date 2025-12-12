@@ -46,6 +46,26 @@ export default {
         },
 
         color() {
+            if (this.type === "maintenance") {
+                return "maintenance";
+            }
+
+            // Get the numeric uptime percentage
+            let key = this.monitor.id + "_" + this.type;
+            let uptimeValue = this.$root.uptimeList[key];
+
+            if (uptimeValue !== undefined) {
+                let percent = Math.round(uptimeValue * 10000) / 100;
+                if (percent >= 100) {
+                    return "success"; // Green for 100%
+                } else if (percent >= 90) {
+                    return "warning"; // Amber for 90-99%
+                } else {
+                    return "danger"; // Red for below 90%
+                }
+            }
+
+            // Fallback based on current status
             if (this.lastHeartBeat.status === MAINTENANCE) {
                 return "maintenance";
             }
@@ -55,7 +75,7 @@ export default {
             }
 
             if (this.lastHeartBeat.status === UP) {
-                return "primary";
+                return "success";
             }
 
             if (this.lastHeartBeat.status === PENDING) {
