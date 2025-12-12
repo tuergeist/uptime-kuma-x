@@ -176,17 +176,7 @@ app.get("/health", (req, res) => {
 app.get("/ready", async (req, res) => {
     // Readiness probe - check if app can handle requests
     try {
-        const Database = require("./database");
         const { R } = require("redbean-node");
-
-        // Check database connection
-        if (!Database.connected) {
-            return res.status(503).json({
-                status: "not_ready",
-                reason: "database_not_connected",
-                timestamp: new Date().toISOString(),
-            });
-        }
 
         // Simple query to verify DB is responsive
         await R.getCell("SELECT 1");
