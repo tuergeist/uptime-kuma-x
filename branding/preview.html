@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uptime Hive - Logo Package</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      padding: 40px;
+    }
+    h1 { text-align: center; margin-bottom: 8px; font-size: 2.5rem; }
+    .subtitle { text-align: center; color: #94a3b8; margin-bottom: 50px; font-size: 1.1rem; }
+    h2 { margin: 50px 0 24px; color: #f8fafc; font-size: 1.3rem; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .logo-card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-card.light {
+      background: #f8fafc;
+    }
+    .logo-card h4 {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+    .logo-card.light h4 {
+      color: #64748b;
+    }
+    .logo-card .filename {
+      font-size: 0.75rem;
+      color: #64748b;
+      font-family: monospace;
+      background: #0f172a;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .logo-card.light .filename {
+      background: #e2e8f0;
+      color: #475569;
+    }
+    
+    .wide-card {
+      grid-column: span 2;
+      padding: 24px 40px;
+    }
+    
+    .colors-section {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+    }
+    .color-swatch {
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .color-swatch .swatch {
+      height: 60px;
+    }
+    .color-swatch .info {
+      background: #1e293b;
+      padding: 12px;
+      font-size: 0.8rem;
+    }
+    .color-swatch .info .name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .color-swatch .info .hex {
+      color: #94a3b8;
+      font-family: monospace;
+    }
+    
+    .files-list {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .files-list ul {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 8px;
+    }
+    .files-list li {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      padding: 8px 12px;
+      background: #0f172a;
+      border-radius: 6px;
+    }
+    .files-list li span {
+      color: #fbbf24;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>uptime<span style="color: #fbbf24">hive</span></h1>
+  <p class="subtitle">Logo Package</p>
+
+  <!-- Icons Section -->
+  <h2>🔷 Icons</h2>
+  <div class="grid">
+    <div class="logo-card">
+      <svg width="80" height="80" viewBox="0 0 100 100" fill="none">
+        <path d="M50 5 L87 27.5 L87 72.5 L50 95 L13 72.5 L13 27.5 Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="2"/>
+        <path d="M20 50 L35 50 L42 35 L50 65 L58 35 L65 50 L80 50" stroke="#1e293b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <h4>Primary Icon</h4>
+      <span class="filename">icon.svg</span>
+    </div>
+    
+    <div class="logo-card light">
+      <svg width="80" height="80" viewBox="0 0 100 100" fill="none">
+        <path d="M50 5 L87 27.5 L87 72.5 L50 95 L13 72.5 L13 27.5 Z" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+        <path d="M20 50 L35 50 L42 35 L50 65 L58 35 L65 50 L80 50" stroke="#1e293b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <h4>Light Background</h4>
+      <span class="filename">icon-light-bg.svg</span>
+    </div>
+    
+    <div class="logo-card">
+      <svg width="80" height="80" viewBox="0 0 100 100" fill="none">
+        <path d="M50 5 L87 27.5 L87 72.5 L50 95 L13 72.5 L13 27.5 Z" fill="#ffffff"/>
+        <path d="M20 50 L35 50 L42 35 L50 65 L58 35 L65 50 L80 50" stroke="#1e293b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <h4>Mono Light</h4>
+      <span class="filename">icon-mono-light.svg</span>
+    </div>
+    
+    <div class="logo-card light">
+      <svg width="80" height="80" viewBox="0 0 100 100" fill="none">
+        <path d="M50 5 L87 27.5 L87 72.5 L50 95 L13 72.5 L13 27.5 Z" fill="#1e293b"/>
+        <path d="M20 50 L35 50 L42 35 L50 65 L58 35 L65 50 L80 50" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <h4>Mono Dark</h4>
+      <span class="filename">icon-mono-dark.svg</span>
+    </div>
+    
+    <div class="logo-card">
+      <svg width="32" height="32" viewBox="0 0 100 100" fill="none">
+        <path d="M50 5 L87 27.5 L87 72.5 L50 95 L13 72.5 L13 27.5 Z" fill="#fbbf24"/>
+        <path d="M20 50 L35 50 L42 35 L50 65 L58 35 L65 50 L80 50" stroke="#1e293b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <h4>Favicon</h4>
+      <span class="filename">favicon.svg</span>
+    </div>
+  </div>
+
+  <!-- Wordmarks Section -->
+  <h2>📝 Wordmarks (Horizontal)</h2>
+  <div class="grid">
+    <div class="logo-card wide-card">
+      <svg width="240" height="52" viewBox="0 0 280 60" fill="none">
+        <g transform="translate(5, 5)">
+          <path d="M25 2.5 L43.5 13.75 L43.5 36.25 L25 47.5 L6.5 36.25 L6.5 13.75 Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+          <path d="M10 25 L17.5 25 L21 17.5 L25 32.5 L29 17.5 L32.5 25 L40 25" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <text x="60" y="38" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#f8fafc">uptime</text>
+        <text x="156" y="38" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#fbbf24">hive</text>
+      </svg>
+      <h4>Dark Background</h4>
+      <span class="filename">wordmark-dark-bg.svg</span>
+    </div>
+    
+    <div class="logo-card wide-card light">
+      <svg width="240" height="52" viewBox="0 0 280 60" fill="none">
+        <g transform="translate(5, 5)">
+          <path d="M25 2.5 L43.5 13.75 L43.5 36.25 L25 47.5 L6.5 36.25 L6.5 13.75 Z" fill="#f59e0b" stroke="#d97706" stroke-width="1"/>
+          <path d="M10 25 L17.5 25 L21 17.5 L25 32.5 L29 17.5 L32.5 25 L40 25" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <text x="60" y="38" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#1e293b">uptime</text>
+        <text x="156" y="38" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#f59e0b">hive</text>
+      </svg>
+      <h4>Light Background</h4>
+      <span class="filename">wordmark-light-bg.svg</span>
+    </div>
+    
+    <div class="logo-card wide-card">
+      <svg width="240" height="52" viewBox="0 0 280 60" fill="none">
+        <g transform="translate(5, 5)">
+          <path d="M25 2.5 L43.5 13.75 L43.5 36.25 L25 47.5 L6.5 36.25 L6.5 13.75 Z" fill="#ffffff"/>
+          <path d="M10 25 L17.5 25 L21 17.5 L25 32.5 L29 17.5 L32.5 25 L40 25" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <text x="60" y="38" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#ffffff">uptimehive</text>
+      </svg>
+      <h4>Mono Light</h4>
+      <span class="filename">wordmark-mono-light.svg</span>
+    </div>
+    
+    <div class="logo-card wide-card light">
+      <svg width="240" height="52" viewBox="0 0 280 60" fill="none">
+        <g transform="translate(5, 5)">
+          <path d="M25 2.5 L43.5 13.75 L43.5 36.25 L25 47.5 L6.5 36.25 L6.5 13.75 Z" fill="#1e293b"/>
+          <path d="M10 25 L17.5 25 L21 17.5 L25 32.5 L29 17.5 L32.5 25 L40 25" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <text x="60" y="38" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#1e293b">uptimehive</text>
+      </svg>
+      <h4>Mono Dark</h4>
+      <span class="filename">wordmark-mono-dark.svg</span>
+    </div>
+  </div>
+
+  <!-- Stacked Section -->
+  <h2>📐 Stacked (Vertical)</h2>
+  <div class="grid">
+    <div class="logo-card">
+      <svg width="120" height="120" viewBox="0 0 140 140" fill="none">
+        <g transform="translate(30, 10)">
+          <path d="M40 4 L74 23 L74 61 L40 80 L6 61 L6 23 Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"/>
+          <path d="M16 42 L28 42 L34 28 L40 56 L46 28 L52 42 L64 42" stroke="#1e293b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <text x="70" y="115" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#f8fafc">uptime<tspan fill="#fbbf24">hive</tspan></text>
+      </svg>
+      <h4>Dark Background</h4>
+      <span class="filename">wordmark-stacked-dark-bg.svg</span>
+    </div>
+    
+    <div class="logo-card light">
+      <svg width="120" height="120" viewBox="0 0 140 140" fill="none">
+        <g transform="translate(30, 10)">
+          <path d="M40 4 L74 23 L74 61 L40 80 L6 61 L6 23 Z" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
+          <path d="M16 42 L28 42 L34 28 L40 56 L46 28 L52 42 L64 42" stroke="#1e293b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <text x="70" y="115" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#1e293b">uptime<tspan fill="#f59e0b">hive</tspan></text>
+      </svg>
+      <h4>Light Background</h4>
+      <span class="filename">wordmark-stacked-light-bg.svg</span>
+    </div>
+  </div>
+
+  <!-- Colors Section -->
+  <h2>🎨 Brand Colors</h2>
+  <div class="colors-section">
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="swatch" style="background: #fbbf24;"></div>
+        <div class="info">
+          <div class="name">Amber Light</div>
+          <div class="hex">#fbbf24</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="swatch" style="background: #f59e0b;"></div>
+        <div class="info">
+          <div class="name">Amber Medium</div>
+          <div class="hex">#f59e0b</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="swatch" style="background: #d97706;"></div>
+        <div class="info">
+          <div class="name">Amber Dark</div>
+          <div class="hex">#d97706</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="swatch" style="background: #1e293b;"></div>
+        <div class="info">
+          <div class="name">Slate Dark</div>
+          <div class="hex">#1e293b</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="swatch" style="background: #f8fafc;"></div>
+        <div class="info">
+          <div class="name">Off White</div>
+          <div class="hex">#f8fafc</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Files List -->
+  <h2>📁 Included Files</h2>
+  <div class="files-list">
+    <ul>
+      <li><span>icon.svg</span> – Primary icon</li>
+      <li><span>icon-light-bg.svg</span> – Icon for light backgrounds</li>
+      <li><span>icon-mono-dark.svg</span> – Monochrome dark</li>
+      <li><span>icon-mono-light.svg</span> – Monochrome light</li>
+      <li><span>favicon.svg</span> – Optimized favicon</li>
+      <li><span>wordmark-dark-bg.svg</span> – Horizontal, dark bg</li>
+      <li><span>wordmark-light-bg.svg</span> – Horizontal, light bg</li>
+      <li><span>wordmark-mono-dark.svg</span> – Horizontal mono dark</li>
+      <li><span>wordmark-mono-light.svg</span> – Horizontal mono light</li>
+      <li><span>wordmark-stacked-dark-bg.svg</span> – Vertical, dark bg</li>
+      <li><span>wordmark-stacked-light-bg.svg</span> – Vertical, light bg</li>
+      <li><span>BRAND-COLORS.md</span> – Color reference</li>
+    </ul>
+  </div>
+
+</body>
+</html>

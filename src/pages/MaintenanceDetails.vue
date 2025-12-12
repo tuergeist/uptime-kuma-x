@@ -159,7 +159,7 @@ textarea {
 }
 
 .btn-monitor {
-    background-color: #5cdd8b;
+    background-color: $primary;
 }
 
 .dark .btn-monitor {

@@ -489,7 +489,7 @@ optgroup {
         }
 
         &.active {
-            background-color: #cdf8f4;
+            background-color: $highlight-white;
         }
         .tags {
             // Removes margin to line up tags list with uptime percentage

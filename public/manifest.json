@@ -2,7 +2,7 @@
     "name": "Uptime Hive",
     "short_name": "Uptime Hive",
     "description": "Multi-tenant monitoring platform",
-    "theme_color": "#5cdd8b",
+    "theme_color": "#f59e0b",
     "start_url": "/",
     "background_color": "#fff",
     "display": "standalone",

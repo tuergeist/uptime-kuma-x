@@ -1,0 +1,12 @@
+<svg width="140" height="140" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon centered -->
+  <g transform="translate(30, 10)">
+    <path d="M40 4 L74 23 L74 61 L40 80 L6 61 L6 23 Z" 
+          fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
+    <path d="M16 42 L28 42 L34 28 L40 56 L46 28 L52 42 L64 42" 
+          stroke="#1e293b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  
+  <!-- Text centered below -->
+  <text x="70" y="115" text-anchor="middle" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="600" fill="#1e293b">uptime<tspan fill="#f59e0b">hive</tspan></text>
+</svg>

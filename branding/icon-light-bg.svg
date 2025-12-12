@@ -1,7 +1,7 @@
 <svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Hexagon Background -->
+  <!-- Hexagon Background - slightly darker for light backgrounds -->
   <path d="M50 5 L87 27.5 L87 72.5 L50 95 L13 72.5 L13 27.5 Z" 
-        fill="#fbbf24" stroke="#f59e0b" stroke-width="2"/>
+        fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
   <!-- Uptime Pulse Line -->
   <path d="M20 50 L35 50 L42 35 L50 65 L58 35 L65 50 L80 50" 
         stroke="#1e293b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>

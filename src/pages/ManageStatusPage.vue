@@ -112,7 +112,7 @@ export default {
         }
 
         &.active {
-            background-color: #cdf8f4;
+            background-color: $highlight-white;
         }
 
         $logo-width: 70px;
