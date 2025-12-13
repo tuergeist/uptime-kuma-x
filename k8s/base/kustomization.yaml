@@ -10,10 +10,13 @@ resources:
   - postgresql.yaml
   - redis.yaml
   - deployment.yaml
+  - worker-deployment.yaml
   - service.yaml
+  - worker-service.yaml
   - ingress.yaml
   - servicemonitor.yaml
+  - worker-servicemonitor.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: uptimehive
-  app.kubernetes.io/managed-by: kustomize
+# Note: commonLabels removed because it adds labels to selectors,
+# which are immutable on existing StatefulSets (postgresql, redis).
+# Labels are defined directly in each resource file instead.

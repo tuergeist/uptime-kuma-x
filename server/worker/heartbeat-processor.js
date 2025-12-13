@@ -12,7 +12,6 @@ const dayjs = require("dayjs");
 const { log } = require("../../src/util");
 const { UP, DOWN, PENDING, MAINTENANCE } = require("../../src/util");
 const { PubSubService } = require("../services/pubsub-service");
-const apicache = require("apicache");
 
 // Dependencies injected at init time
 let Monitor = null;
@@ -57,10 +56,11 @@ async function processHeartbeat(monitor, checkResult) {
             await sendNotification(isFirstBeat, monitor, heartbeat);
         }
 
-        // 2. Clear cache on important beats
+        // 2. Cache invalidation on important beats
+        // Note: Workers don't have local HTTP cache - API servers clear their
+        // caches when they receive importantHeartbeat events via Redis pub/sub
         if (isImportant) {
-            log.debug("processor", `[${monitor.name}] Clearing apicache`);
-            apicache.clear();
+            log.debug("processor", `[${monitor.name}] Important beat - API servers will clear cache`);
         }
 
         // 3. Calculate uptime statistics

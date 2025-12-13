@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: uptime-kuma-worker
+  namespace: uptimehive
+  labels:
+    app.kubernetes.io/name: uptime-kuma-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: uptimehive
+spec:
+  # Headless service for metrics scraping - each pod needs individual scraping
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: uptime-kuma-worker
+  ports:
+    - name: health
+      port: 3002
+      targetPort: 3002
+      protocol: TCP

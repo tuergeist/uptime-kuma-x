@@ -162,6 +162,22 @@ const { teamSocketHandler } = require("./socket-handlers/team-socket-handler");
 const { resolveTenant } = require("./middleware/tenant");
 const { joinTenantRooms } = require("./utils/tenant-emit");
 
+// Distributed worker mode
+const { HeartbeatRelayService } = require("./services/heartbeat-relay");
+const { ScheduleService } = require("./services/schedule-service");
+const { PubSubService } = require("./services/pubsub-service");
+const { WORKER_COMMANDS } = require("./services/pubsub-channels");
+
+/**
+ * Check if distributed worker mode is enabled
+ * In distributed mode, monitors are executed by separate worker processes
+ * and heartbeats are relayed via Redis pub/sub
+ * @returns {boolean}
+ */
+function isDistributedMode() {
+    return process.env.DISABLE_BUILTIN_SCHEDULER === "true";
+}
+
 app.use(express.json());
 
 // Health check endpoints for Kubernetes probes (before other middleware)
@@ -835,6 +851,17 @@ let needSetup = false;
 
                 await server.sendUpdateMonitorIntoList(socket, bean.id);
 
+                // In distributed mode, initialize schedule entry for workers
+                if (isDistributedMode()) {
+                    const scheduleService = ScheduleService.getInstance();
+                    await scheduleService.initializeSchedule(
+                        bean.id,
+                        socket.tenantId || 1,
+                        bean.interval || 60,
+                        monitor.active !== false
+                    );
+                }
+
                 if (monitor.active !== false) {
                     await startMonitor(socket.userID, bean.id, socket.tenantId || 1);
                 }
@@ -1181,6 +1208,18 @@ let needSetup = false;
                     if (deleteChildren) {
                         // Delete all child monitors recursively
                         if (children && children.length > 0) {
+                            // In distributed mode, delete schedules for all descendants first
+                            if (isDistributedMode()) {
+                                const scheduleService = ScheduleService.getInstance();
+                                for (const child of children) {
+                                    // Get all descendant IDs recursively
+                                    const descendantIDs = await Monitor.getAllChildrenIDs(child.id);
+                                    for (const descId of descendantIDs) {
+                                        await scheduleService.deleteSchedule(descId);
+                                    }
+                                    await scheduleService.deleteSchedule(child.id);
+                                }
+                            }
                             for (const child of children) {
                                 await Monitor.deleteMonitorRecursively(child.id, socket.userID, socket.tenantId || 1);
                                 await server.sendDeleteMonitorFromList(socket, child.id);
@@ -1197,6 +1236,12 @@ let needSetup = false;
                             }
                         }
                     }
+                }
+
+                // In distributed mode, delete the schedule entry
+                if (isDistributedMode()) {
+                    const scheduleService = ScheduleService.getInstance();
+                    await scheduleService.deleteSchedule(monitorID);
                 }
 
                 // Delete the monitor itself
@@ -1824,7 +1869,25 @@ let needSetup = false;
         } else {
             log.info("server", `Listening on ${port}`);
         }
-        await startMonitors();
+
+        if (isDistributedMode()) {
+            // Distributed mode: workers execute monitors, we just relay heartbeats
+            log.info("server", "Running in distributed mode - built-in scheduler disabled");
+            log.info("server", "Initializing heartbeat relay service...");
+
+            const heartbeatRelay = HeartbeatRelayService.getInstance();
+            await heartbeatRelay.init(io);
+
+            // Sync all monitors to schedule table for workers to pick up
+            const scheduleService = ScheduleService.getInstance();
+            await scheduleService.syncAllMonitors();
+
+            log.info("server", "Heartbeat relay service initialized");
+        } else {
+            // Legacy mode: run monitors in this process
+            log.info("server", "Running in legacy mode - built-in scheduler enabled");
+            await startMonitors();
+        }
 
         // Put this here. Start background jobs after the db and server is ready to prevent clear up during db migration.
         await initBackgroundJobs();
@@ -1985,12 +2048,27 @@ async function startMonitor(userID, monitorID, tenantId = 1) {
         tenantId,
     ]);
 
-    if (monitor.id in server.monitorList) {
-        await server.monitorList[monitor.id].stop();
-    }
+    if (isDistributedMode()) {
+        // Distributed mode: activate in schedule table, workers will pick it up
+        const scheduleService = ScheduleService.getInstance();
+        await scheduleService.activateSchedule(monitorID, monitor.interval || 60);
 
-    server.monitorList[monitor.id] = monitor;
-    await monitor.start(io);
+        // Optionally publish CHECK_NOW command for immediate check
+        const pubsub = PubSubService.getInstance();
+        if (pubsub.isAvailable()) {
+            await pubsub.publishWorkerCommand(WORKER_COMMANDS.CHECK_NOW, monitorID, tenantId);
+        }
+
+        log.info("manage", `Monitor ${monitorID} activated in schedule table`);
+    } else {
+        // Legacy mode: start local monitor loop
+        if (monitor.id in server.monitorList) {
+            await server.monitorList[monitor.id].stop();
+        }
+
+        server.monitorList[monitor.id] = monitor;
+        await monitor.start(io);
+    }
 }
 
 /**
@@ -2024,9 +2102,17 @@ async function pauseMonitor(userID, monitorID, tenantId = 1) {
         tenantId,
     ]);
 
-    if (monitorID in server.monitorList) {
-        await server.monitorList[monitorID].stop();
-        server.monitorList[monitorID].active = false;
+    if (isDistributedMode()) {
+        // Distributed mode: deactivate in schedule table
+        const scheduleService = ScheduleService.getInstance();
+        await scheduleService.deactivateSchedule(monitorID);
+        log.info("manage", `Monitor ${monitorID} deactivated in schedule table`);
+    } else {
+        // Legacy mode: stop local monitor loop
+        if (monitorID in server.monitorList) {
+            await server.monitorList[monitorID].stop();
+            server.monitorList[monitorID].active = false;
+        }
     }
 }
 

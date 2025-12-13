@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: uptime-kuma
+  name: uptime-kuma-worker
   namespace: uptimehive
   labels:
-    app.kubernetes.io/name: uptime-kuma
-    app.kubernetes.io/component: api
+    app.kubernetes.io/name: uptime-kuma-worker
+    app.kubernetes.io/component: worker
     app.kubernetes.io/part-of: uptimehive
 spec:
-  # API servers can scale horizontally in distributed mode
-  # Workers handle monitor execution via schedule table
+  # Workers can be scaled horizontally
+  # Each worker claims monitors atomically using FOR UPDATE SKIP LOCKED
   replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: uptime-kuma
+      app.kubernetes.io/name: uptime-kuma-worker
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -22,8 +22,8 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: uptime-kuma
-        app.kubernetes.io/component: api
+        app.kubernetes.io/name: uptime-kuma-worker
+        app.kubernetes.io/component: worker
         app.kubernetes.io/part-of: uptimehive
     spec:
       securityContext:
@@ -32,12 +32,13 @@ spec:
         runAsGroup: 1001
         fsGroup: 1001
       containers:
-        - name: uptime-kuma
+        - name: worker
           image: ghcr.io/tuergeist/uptime-kuma-x:master
           imagePullPolicy: Always
+          command: ["node", "server/worker/index.js"]
           ports:
-            - containerPort: 3001
-              name: http
+            - containerPort: 3002
+              name: health
               protocol: TCP
           envFrom:
             - configMapRef:
@@ -45,9 +46,20 @@ spec:
             - secretRef:
                 name: uptime-kuma-secrets
           env:
-            # Enable distributed mode - workers execute monitors
-            - name: DISABLE_BUILTIN_SCHEDULER
-              value: "true"
+            # Worker-specific configuration
+            - name: WORKER_BATCH_SIZE
+              value: "10"
+            - name: WORKER_POLL_INTERVAL
+              value: "1000"
+            - name: WORKER_HEARTBEAT_INTERVAL
+              value: "30000"
+            - name: WORKER_HEALTH_PORT
+              value: "3002"
+            # Generate unique worker ID from pod name
+            - name: WORKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           resources:
             requests:
               cpu: 100m
@@ -58,15 +70,15 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 3001
-            initialDelaySeconds: 30
+              port: 3002
+            initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /ready
-              port: 3001
+              port: 3002
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 5
@@ -74,22 +86,17 @@ spec:
           startupProbe:
             httpGet:
               path: /health
-              port: 3001
-            initialDelaySeconds: 10
-            periodSeconds: 10
+              port: 3002
+            initialDelaySeconds: 5
+            periodSeconds: 5
             timeoutSeconds: 5
-            failureThreshold: 30
-          volumeMounts:
-            - name: data
-              mountPath: /app/data
+            failureThreshold: 12
           lifecycle:
             preStop:
               exec:
                 command:
                   - /bin/sh
                   - -c
-                  - sleep 10
-      volumes:
-        - name: data
-          emptyDir: {}
-      terminationGracePeriodSeconds: 30
+                  # Allow time for in-flight monitors to complete
+                  - sleep 15
+      terminationGracePeriodSeconds: 45
