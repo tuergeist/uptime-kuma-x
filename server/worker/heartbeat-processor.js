@@ -12,6 +12,7 @@ const dayjs = require("dayjs");
 const { log } = require("../../src/util");
 const { UP, DOWN, PENDING, MAINTENANCE } = require("../../src/util");
 const { PubSubService } = require("../services/pubsub-service");
+const prometheusMetrics = require("../services/prometheus-metrics");
 
 // Dependencies injected at init time
 let Monitor = null;
@@ -72,7 +73,16 @@ async function processHeartbeat(monitor, checkResult) {
         log.debug("processor", `[${monitor.name}] Storing heartbeat`);
         await R.store(heartbeat);
 
-        // 5. Publish heartbeat via Redis
+        // 5. Record Prometheus metrics
+        const statusLabel = heartbeat.status === UP ? "up" : heartbeat.status === DOWN ? "down" : heartbeat.status === PENDING ? "pending" : "maintenance";
+        prometheusMetrics.recordCheck({
+            tenantId: tenantId,
+            monitorType: monitor.type,
+            status: statusLabel,
+            duration: heartbeat.ping,
+        });
+
+        // 6. Publish heartbeat via Redis
         if (pubsub.isAvailable()) {
             await pubsub.publishHeartbeat(tenantId, monitor.id, userId, heartbeat.toJSON());
 
@@ -91,7 +101,7 @@ async function processHeartbeat(monitor, checkResult) {
             }
         }
 
-        // 6. Log result
+        // 7. Log result
         logHeartbeatResult(monitor, heartbeat, nextInterval);
 
         return {

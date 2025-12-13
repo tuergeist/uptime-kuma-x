@@ -6,6 +6,7 @@
  */
 const http = require("http");
 const { log } = require("../../src/util");
+const prometheusMetrics = require("../services/prometheus-metrics");
 
 class WorkerHealthServer {
     /**
@@ -91,6 +92,8 @@ class WorkerHealthServer {
             this.handleStatusCheck(req, res);
         } else if (url === "/metrics") {
             this.handleMetrics(req, res);
+        } else if (url === "/metrics/uptime-hive") {
+            this.handleAppMetrics(req, res);
         } else {
             res.writeHead(404, { "Content-Type": "text/plain" });
             res.end("Not Found");
@@ -152,7 +155,7 @@ class WorkerHealthServer {
     }
 
     /**
-     * Handle /metrics endpoint (Prometheus format)
+     * Handle /metrics endpoint (Prometheus format - worker stats)
      */
     handleMetrics(req, res) {
         const status = this.worker.getStatus();
@@ -178,6 +181,20 @@ class WorkerHealthServer {
 
         res.writeHead(200, { "Content-Type": "text/plain; version=0.0.4" });
         res.end(metrics);
+    }
+
+    /**
+     * Handle /metrics/uptime-hive endpoint (application metrics)
+     */
+    async handleAppMetrics(req, res) {
+        try {
+            const metrics = await prometheusMetrics.getMetrics();
+            res.writeHead(200, { "Content-Type": prometheusMetrics.getContentType() });
+            res.end(metrics);
+        } catch (err) {
+            res.writeHead(500, { "Content-Type": "text/plain" });
+            res.end("Error collecting metrics: " + err.message);
+        }
     }
 }
 
