@@ -78,6 +78,38 @@ class UptimeKumaServer {
     }
 
     /**
+     * Initialize monitor types without creating a full server instance.
+     * Used by workers that need to execute monitor checks without the HTTP/Socket.IO infrastructure.
+     * Safe to call multiple times - will only initialize once.
+     */
+    static initMonitorTypes() {
+        // Skip if already initialized
+        if (Object.keys(UptimeKumaServer.monitorTypeList).length > 0) {
+            return;
+        }
+
+        log.info("server", "Initializing monitor types...");
+
+        UptimeKumaServer.monitorTypeList["real-browser"] = new RealBrowserMonitorType();
+        UptimeKumaServer.monitorTypeList["tailscale-ping"] = new TailscalePing();
+        UptimeKumaServer.monitorTypeList["websocket-upgrade"] = new WebSocketMonitorType();
+        UptimeKumaServer.monitorTypeList["dns"] = new DnsMonitorType();
+        UptimeKumaServer.monitorTypeList["postgres"] = new PostgresMonitorType();
+        UptimeKumaServer.monitorTypeList["mqtt"] = new MqttMonitorType();
+        UptimeKumaServer.monitorTypeList["smtp"] = new SMTPMonitorType();
+        UptimeKumaServer.monitorTypeList["group"] = new GroupMonitorType();
+        UptimeKumaServer.monitorTypeList["snmp"] = new SNMPMonitorType();
+        UptimeKumaServer.monitorTypeList["grpc-keyword"] = new GrpcKeywordMonitorType();
+        UptimeKumaServer.monitorTypeList["mongodb"] = new MongodbMonitorType();
+        UptimeKumaServer.monitorTypeList["rabbitmq"] = new RabbitMqMonitorType();
+        UptimeKumaServer.monitorTypeList["port"] = new TCPMonitorType();
+        UptimeKumaServer.monitorTypeList["manual"] = new ManualMonitorType();
+        UptimeKumaServer.monitorTypeList["redis"] = new RedisMonitorType();
+
+        log.info("server", `Initialized ${Object.keys(UptimeKumaServer.monitorTypeList).length} monitor types`);
+    }
+
+    /**
      *
      */
     constructor() {
@@ -111,22 +143,8 @@ class UptimeKumaServer {
             }
         }
 
-        // Set Monitor Types
-        UptimeKumaServer.monitorTypeList["real-browser"] = new RealBrowserMonitorType();
-        UptimeKumaServer.monitorTypeList["tailscale-ping"] = new TailscalePing();
-        UptimeKumaServer.monitorTypeList["websocket-upgrade"] = new WebSocketMonitorType();
-        UptimeKumaServer.monitorTypeList["dns"] = new DnsMonitorType();
-        UptimeKumaServer.monitorTypeList["postgres"] = new PostgresMonitorType();
-        UptimeKumaServer.monitorTypeList["mqtt"] = new MqttMonitorType();
-        UptimeKumaServer.monitorTypeList["smtp"] = new SMTPMonitorType();
-        UptimeKumaServer.monitorTypeList["group"] = new GroupMonitorType();
-        UptimeKumaServer.monitorTypeList["snmp"] = new SNMPMonitorType();
-        UptimeKumaServer.monitorTypeList["grpc-keyword"] = new GrpcKeywordMonitorType();
-        UptimeKumaServer.monitorTypeList["mongodb"] = new MongodbMonitorType();
-        UptimeKumaServer.monitorTypeList["rabbitmq"] = new RabbitMqMonitorType();
-        UptimeKumaServer.monitorTypeList["port"] = new TCPMonitorType();
-        UptimeKumaServer.monitorTypeList["manual"] = new ManualMonitorType();
-        UptimeKumaServer.monitorTypeList["redis"] = new RedisMonitorType();
+        // Set Monitor Types (uses static method that's also callable by workers)
+        UptimeKumaServer.initMonitorTypes();
 
         // Allow all CORS origins (polling) in development
         let cors = undefined;

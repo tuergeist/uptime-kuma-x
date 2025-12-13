@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uptime-hive-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  uptime-hive.json: |
+$(cat /Users/cb/git/uptime-kuma-x/k8s/grafana-dashboard.json | sed 's/^/    /')

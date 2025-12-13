@@ -81,6 +81,9 @@ async function main() {
         const { UptimeKumaServer } = require("../uptime-kuma-server");
         const { UptimeCalculator } = require("../uptime-calculator");
 
+        // Initialize monitor types (workers don't create full server instance)
+        UptimeKumaServer.initMonitorTypes();
+
         // Create and initialize worker
         worker = new MonitorWorker(config);
         worker.init(Monitor, UptimeKumaServer, UptimeCalculator);
