@@ -158,7 +158,17 @@ export default {
                         }
                     },
                     legend: {
-                        display: false,
+                        display: true,
+                        position: "bottom",
+                        labels: {
+                            usePointStyle: true,
+                            pointStyle: "line",
+                            padding: 15,
+                            filter: function (legendItem) {
+                                // Hide status bar from legend
+                                return legendItem.text !== "status" && legendItem.text !== "ping";
+                            },
+                        },
                     },
                 },
             };
@@ -494,28 +504,33 @@ export default {
                         tension: 0.2,
                         borderColor: "#5CDD8B",
                         backgroundColor: "#5CDD8B06",
+                        borderWidth: 2,
                         yAxisID: "y",
-                        label: "avg-ping",
+                        label: "Avg",
                     },
                     {
                         // minimum ping chart
                         data: minPingData,
                         fill: "origin",
                         tension: 0.2,
-                        borderColor: "#3CBD6B38",
+                        borderColor: "#3CBD6B",
                         backgroundColor: "#5CDD8B06",
+                        borderWidth: 1,
+                        borderDash: [5, 5],
                         yAxisID: "y",
-                        label: "min-ping",
+                        label: "Min",
                     },
                     {
                         // maximum ping chart
                         data: maxPingData,
                         fill: "origin",
                         tension: 0.2,
-                        borderColor: "#7CBD6B38",
+                        borderColor: "#9AE6B4",
                         backgroundColor: "#5CDD8B06",
+                        borderWidth: 1,
+                        borderDash: [5, 5],
                         yAxisID: "y",
-                        label: "max-ping",
+                        label: "Max",
                     },
                     {
                         // Bar Chart
