@@ -28,6 +28,7 @@ const { CookieJar } = require("tough-cookie");
 const { HttpsCookieAgent } = require("http-cookie-agent/http");
 const https = require("https");
 const http = require("http");
+const prometheusMetrics = require("../services/prometheus-metrics");
 
 const rootCertificates = rootCertificatesFingerprints();
 
@@ -955,6 +956,15 @@ class Monitor extends BeanModel {
             log.debug("monitor", `[${this.name}] Send to socket`);
             io.to(this.user_id).emit("heartbeat", bean.toJSON());
             Monitor.sendStats(io, this.id, this.user_id);
+
+            // Record Prometheus metrics
+            const statusLabel = bean.status === UP ? "up" : bean.status === DOWN ? "down" : bean.status === PENDING ? "pending" : "maintenance";
+            prometheusMetrics.recordCheck({
+                tenantId: this.tenant_id || 1,
+                monitorType: this.type,
+                status: statusLabel,
+                duration: bean.ping,
+            });
 
             // Store to database
             log.debug("monitor", `[${this.name}] Store`);
