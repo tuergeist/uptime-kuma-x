@@ -9,6 +9,7 @@ const { PubSubService } = require("./pubsub-service");
 const { emitToUser } = require("../utils/tenant-emit");
 const { log } = require("../../src/util");
 const apicache = require("../modules/apicache");
+const { UptimeCalculator } = require("../uptime-calculator");
 
 class HeartbeatRelayService {
     /**
@@ -116,6 +117,10 @@ class HeartbeatRelayService {
                 log.warn("heartbeat-relay", "Invalid heartbeat data received");
                 return;
             }
+
+            // Invalidate UptimeCalculator cache so next chart request gets fresh DB data
+            // This is critical for distributed mode where workers update stats
+            UptimeCalculator.remove(monitorId);
 
             // Emit to user's Socket.IO room
             emitToUser(this.io, tenantId, userId, "heartbeat", heartbeat);
