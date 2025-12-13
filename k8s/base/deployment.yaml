@@ -7,7 +7,9 @@ metadata:
     app.kubernetes.io/name: uptime-kuma
     app.kubernetes.io/part-of: uptimehive
 spec:
-  replicas: 2
+  # Keep at 1 until distributed worker architecture is enabled
+  # Multiple replicas would cause duplicate monitor checks
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: uptime-kuma
