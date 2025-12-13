@@ -14,6 +14,8 @@ const Database = require("./database");
 async function upsertStatBean(table, bean) {
     const isPostgres = Database.dbConfig && Database.dbConfig.type === "postgres";
 
+    log.debug("uptime-calc", `upsertStatBean: table=${table}, isPostgres=${isPostgres}, dbConfig.type=${Database.dbConfig?.type}`);
+
     if (isPostgres) {
         // Use PostgreSQL upsert with ON CONFLICT
         const extras = bean.extras || null;
