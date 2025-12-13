@@ -747,9 +747,25 @@ let needSetup = false;
                     throw new Error("Uptime Kuma has been initialized. If you want to run setup again, please delete the database.");
                 }
 
+                // Create a tenant for the admin user
+                let tenant = R.dispense("tenant");
+                tenant.slug = username.toLowerCase().replace(/[^a-z0-9]/g, "-").substring(0, 63);
+                tenant.name = `${username}'s Organization`;
+                tenant.status = "active";
+                tenant.settings = JSON.stringify({});
+
+                // Get the free plan ID
+                const freePlan = await R.findOne("plan", " slug = ? ", ["free"]);
+                tenant.plan_id = freePlan ? freePlan.id : 1;
+
+                await R.store(tenant);
+
+                // Create the admin user as owner of the tenant
                 let user = R.dispense("user");
                 user.username = username;
                 user.password = await passwordHash.generate(password);
+                user.tenant_id = tenant.id;
+                user.role = "owner";
                 await R.store(user);
 
                 needSetup = false;
