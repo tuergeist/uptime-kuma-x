@@ -51,7 +51,8 @@ async function main() {
     try {
         // Initialize database connection
         log.info("worker", "Connecting to database...");
-        await Database.initDatabase();
+        Database.initDataDir({});
+        await Database.connect(false, true, false);
         log.info("worker", "Database connected");
 
         // Load required models
@@ -97,8 +98,9 @@ async function shutdown(signal) {
             await healthServer.stop();
         }
 
-        // Close database
-        await Database.close();
+        // Close database connection
+        const { R } = require("redbean-node");
+        await R.close();
 
         log.info("worker", "Shutdown complete");
         process.exit(0);
