@@ -52,6 +52,20 @@ async function main() {
         // Initialize database connection
         log.info("worker", "Connecting to database...");
         Database.initDataDir({});
+
+        // Create db-config.json from environment variables if UPTIME_KUMA_DB_TYPE is set
+        if (process.env.UPTIME_KUMA_DB_TYPE) {
+            log.info("worker", `Database type from env: ${process.env.UPTIME_KUMA_DB_TYPE}`);
+            Database.writeDBConfig({
+                type: process.env.UPTIME_KUMA_DB_TYPE,
+                hostname: process.env.UPTIME_KUMA_DB_HOSTNAME,
+                port: process.env.UPTIME_KUMA_DB_PORT,
+                dbName: process.env.UPTIME_KUMA_DB_NAME,
+                username: process.env.UPTIME_KUMA_DB_USERNAME,
+                password: process.env.UPTIME_KUMA_DB_PASSWORD,
+            });
+        }
+
         await Database.connect(false, true, false);
         log.info("worker", "Database connected");
 
