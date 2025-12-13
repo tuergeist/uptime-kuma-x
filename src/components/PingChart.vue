@@ -25,12 +25,12 @@
 </template>
 
 <script lang="js">
-import { BarController, BarElement, Chart, Filler, LinearScale, LineController, LineElement, PointElement, TimeScale, Tooltip } from "chart.js";
+import { BarController, BarElement, Chart, Filler, Legend, LinearScale, LineController, LineElement, PointElement, TimeScale, Tooltip } from "chart.js";
 import "chartjs-adapter-dayjs-4";
 import { Line } from "vue-chartjs";
 import { UP, DOWN, PENDING, MAINTENANCE } from "../util.ts";
 
-Chart.register(LineController, BarController, LineElement, PointElement, TimeScale, BarElement, LinearScale, Tooltip, Filler);
+Chart.register(LineController, BarController, LineElement, PointElement, TimeScale, BarElement, LinearScale, Tooltip, Filler, Legend);
 
 export default {
     components: { Line },
@@ -149,11 +149,14 @@ export default {
                         bodyColor: this.$root.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
                         titleColor: this.$root.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
                         filter: function (tooltipItem) {
-                            return tooltipItem.datasetIndex === 0;  // Hide tooltip on Bar Chart
+                            // Show Avg (0), Min (1), Max (2) but hide status Bar Chart (3)
+                            return tooltipItem.datasetIndex <= 2;
                         },
                         callbacks: {
                             label: (context) => {
-                                return ` ${new Intl.NumberFormat().format(context.parsed.y)} ms`;
+                                const label = context.dataset.label || "";
+                                const value = new Intl.NumberFormat().format(context.parsed.y);
+                                return ` ${label}: ${value} ms`;
                             },
                         }
                     },
