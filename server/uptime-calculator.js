@@ -3,7 +3,20 @@ const { UP, MAINTENANCE, DOWN, PENDING } = require("../src/util");
 const { LimitQueue } = require("./utils/limit-queue");
 const { log } = require("../src/util");
 const { R } = require("redbean-node");
-const Database = require("./database");
+
+/**
+ * Check if the database is PostgreSQL by checking the Knex client
+ * @returns {boolean}
+ */
+function isPostgresDatabase() {
+    try {
+        // R.knex is the Knex instance used by RedBean
+        const client = R.knex?.client?.config?.client;
+        return client === "pg" || client === "postgresql";
+    } catch (e) {
+        return false;
+    }
+}
 
 /**
  * Upsert a stat bean (daily/hourly/minutely) with conflict handling
@@ -12,9 +25,7 @@ const Database = require("./database");
  * @returns {Promise<void>}
  */
 async function upsertStatBean(table, bean) {
-    const isPostgres = Database.dbConfig && Database.dbConfig.type === "postgres";
-
-    log.debug("uptime-calc", `upsertStatBean: table=${table}, isPostgres=${isPostgres}, dbConfig.type=${Database.dbConfig?.type}`);
+    const isPostgres = isPostgresDatabase();
 
     if (isPostgres) {
         // Use PostgreSQL upsert with ON CONFLICT
