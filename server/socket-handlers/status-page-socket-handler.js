@@ -198,18 +198,22 @@ module.exports.statusPageSocketHandler = (socket) => {
                 groupBean.public = true;
                 groupBean.weight = groupOrder++;
 
-                await R.store(groupBean);
+                const groupId = await R.store(groupBean);
 
-                await R.exec("DELETE FROM monitor_group WHERE group_id = ? ", [
-                    groupBean.id
-                ]);
+                // Use returned ID from store (PostgreSQL may not update bean.id immediately)
+                const effectiveGroupId = groupId || groupBean.id;
+                if (effectiveGroupId) {
+                    await R.exec("DELETE FROM monitor_group WHERE group_id = ? ", [
+                        effectiveGroupId
+                    ]);
+                }
 
                 let monitorOrder = 1;
 
                 for (let monitor of group.monitorList) {
                     let relationBean = R.dispense("monitor_group");
                     relationBean.weight = monitorOrder++;
-                    relationBean.group_id = groupBean.id;
+                    relationBean.group_id = effectiveGroupId;
                     relationBean.monitor_id = monitor.id;
 
                     if (monitor.sendUrl !== undefined) {
@@ -223,8 +227,8 @@ module.exports.statusPageSocketHandler = (socket) => {
                     await R.store(relationBean);
                 }
 
-                groupIDList.push(groupBean.id);
-                group.id = groupBean.id;
+                groupIDList.push(effectiveGroupId);
+                group.id = effectiveGroupId;
             }
 
             // Delete groups that are not in the list
@@ -290,20 +294,28 @@ module.exports.statusPageSocketHandler = (socket) => {
 
             checkSlug(slug);
 
+            // Get tenant slug to prefix status page slug
+            const tenantId = socket.tenantId || 1;
+            const tenant = await R.findOne("tenant", " id = ? ", [tenantId]);
+            const tenantSlug = tenant?.slug || "default";
+
+            // Prefix slug with tenant slug (e.g., "acme-status" for tenant "acme")
+            const prefixedSlug = `${tenantSlug}-${slug}`;
+
             let statusPage = R.dispense("status_page");
-            statusPage.slug = slug;
+            statusPage.slug = prefixedSlug;
             statusPage.title = title;
             statusPage.theme = "auto";
             statusPage.icon = "";
             statusPage.autoRefreshInterval = 300;
-            statusPage.tenant_id = socket.tenantId || 1;
+            statusPage.tenant_id = tenantId;
             await R.store(statusPage);
 
             callback({
                 ok: true,
                 msg: "successAdded",
                 msgi18n: true,
-                slug: slug
+                slug: prefixedSlug
             });
 
         } catch (error) {
