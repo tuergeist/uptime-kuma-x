@@ -3,6 +3,62 @@ const { UP, MAINTENANCE, DOWN, PENDING } = require("../src/util");
 const { LimitQueue } = require("./utils/limit-queue");
 const { log } = require("../src/util");
 const { R } = require("redbean-node");
+const Database = require("./database");
+
+/**
+ * Upsert a stat bean (daily/hourly/minutely) with conflict handling
+ * @param {string} table Table name (stat_daily, stat_hourly, stat_minutely)
+ * @param {object} bean The bean to store
+ * @returns {Promise<void>}
+ */
+async function upsertStatBean(table, bean) {
+    const isPostgres = Database.dbConfig && Database.dbConfig.type === "postgres";
+
+    if (isPostgres) {
+        // Use PostgreSQL upsert with ON CONFLICT
+        const extras = bean.extras || null;
+        await R.exec(`
+            INSERT INTO ${table} (monitor_id, timestamp, up, down, ping, ping_min, ping_max, extras)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (monitor_id, timestamp)
+            DO UPDATE SET up = EXCLUDED.up, down = EXCLUDED.down, ping = EXCLUDED.ping,
+                          ping_min = EXCLUDED.ping_min, ping_max = EXCLUDED.ping_max, extras = EXCLUDED.extras
+        `, [
+            bean.monitor_id,
+            bean.timestamp,
+            bean.up || 0,
+            bean.down || 0,
+            bean.ping || 0,
+            bean.pingMin || bean.ping_min || 0,
+            bean.pingMax || bean.ping_max || 0,
+            extras
+        ]);
+    } else {
+        // For SQLite/MariaDB, use regular store (with retry on conflict)
+        try {
+            await R.store(bean);
+        } catch (e) {
+            if (e.message && e.message.includes("UNIQUE constraint")) {
+                // Conflict - fetch existing and update
+                let existing = await R.findOne(table, " monitor_id = ? AND timestamp = ?", [
+                    bean.monitor_id,
+                    bean.timestamp,
+                ]);
+                if (existing) {
+                    existing.up = bean.up;
+                    existing.down = bean.down;
+                    existing.ping = bean.ping;
+                    existing.pingMin = bean.pingMin;
+                    existing.pingMax = bean.pingMax;
+                    existing.extras = bean.extras;
+                    await R.store(existing);
+                }
+            } else {
+                throw e;
+            }
+        }
+    }
+}
 
 /**
  * Calculates the uptime of a monitor.
@@ -314,7 +370,7 @@ class UptimeCalculator {
                 dailyStatBean.extras = JSON.stringify(extras);
             }
         }
-        await R.store(dailyStatBean);
+        await upsertStatBean("stat_daily", dailyStatBean);
 
         let currentDate = this.getCurrentDate();
 
@@ -334,7 +390,7 @@ class UptimeCalculator {
                     hourlyStatBean.extras = JSON.stringify(extras);
                 }
             }
-            await R.store(hourlyStatBean);
+            await upsertStatBean("stat_hourly", hourlyStatBean);
         }
 
         // For migration mode, we don't need to store old hourly and minutely data, but we need 24-hour's minutely data
@@ -353,7 +409,7 @@ class UptimeCalculator {
                     minutelyStatBean.extras = JSON.stringify(extras);
                 }
             }
-            await R.store(minutelyStatBean);
+            await upsertStatBean("stat_minutely", minutelyStatBean);
         }
 
         // No need to remove old data in migration mode
