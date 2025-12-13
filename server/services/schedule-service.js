@@ -111,25 +111,27 @@ class ScheduleService {
         const staleStr = staleThreshold.format("YYYY-MM-DD HH:mm:ss");
 
         // Use raw query for FOR UPDATE SKIP LOCKED
+        // RedBean uses ? placeholders, not $1/$2 positional parameters
         const sql = `
             WITH to_claim AS (
                 SELECT id
                 FROM monitor_schedule
                 WHERE active = true
-                  AND next_check_at <= $1
-                  AND (claimed_by IS NULL OR claimed_at < $2)
+                  AND next_check_at <= ?
+                  AND (claimed_by IS NULL OR claimed_at < ?)
                 ORDER BY next_check_at
-                LIMIT $3
+                LIMIT ?
                 FOR UPDATE SKIP LOCKED
             )
             UPDATE monitor_schedule
-            SET claimed_by = $4,
-                claimed_at = $1
+            SET claimed_by = ?,
+                claimed_at = ?
             WHERE id IN (SELECT id FROM to_claim)
             RETURNING *
         `;
 
-        const result = await R.getAll(sql, [nowStr, staleStr, batchSize, workerId]);
+        // Bindings: nowStr (next_check_at <=), staleStr (claimed_at <), batchSize (LIMIT), workerId (claimed_by =), nowStr (claimed_at =)
+        const result = await R.getAll(sql, [nowStr, staleStr, batchSize, workerId, nowStr]);
 
         // Fetch monitor data for each claimed schedule
         const schedules = [];
