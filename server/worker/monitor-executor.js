@@ -166,6 +166,11 @@ async function executeMonitorType(monitor, bean, timeout) {
         if (!bean.ping) {
             bean.ping = dayjs().valueOf() - startTime;
         }
+    } else if (typeof monitor.executeTypeCheck === "function") {
+        // Use Monitor's executeTypeCheck for inline types (http, keyword, json-query, ping, docker, etc.)
+        // This method is available when monitor is a proper Monitor bean from R.findOne()
+        const result = await monitor.executeTypeCheck(bean, timeout);
+        tlsInfo = result.tlsInfo;
     } else {
         throw new Error(`Unknown monitor type: ${type}`);
     }

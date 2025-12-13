@@ -134,21 +134,23 @@ async function getMonitorStats(monitorId) {
         const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(monitorId);
 
         // Get 24-hour and 30-day uptime
-        const uptime24h = await uptimeCalculator.get24HourUptime();
-        const uptime30d = await uptimeCalculator.get30DayUptime();
+        // These return UptimeDataResult objects with .uptime property
+        const uptime24hResult = uptimeCalculator.get24Hour();
+        const uptime30dResult = uptimeCalculator.get30Day();
 
-        // Get average ping from recent heartbeats
+        // Get average ping from recent heartbeats (database-agnostic)
+        const oneHourAgo = dayjs().subtract(1, "hour").format("YYYY-MM-DD HH:mm:ss");
         const avgPingResult = await R.getRow(`
             SELECT AVG(ping) as avg_ping
             FROM heartbeat
             WHERE monitor_id = ?
-              AND time > datetime('now', '-1 hour')
+              AND time > ?
               AND status = 1
-        `, [monitorId]);
+        `, [monitorId, oneHourAgo]);
 
         return {
-            uptime24h: uptime24h,
-            uptime30d: uptime30d,
+            uptime24h: uptime24hResult.uptime,
+            uptime30d: uptime30dResult.uptime,
             avgPing: avgPingResult?.avg_ping || 0,
         };
     } catch (error) {
