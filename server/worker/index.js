@@ -14,6 +14,13 @@
  * - REDIS_URL: Redis connection URL (required)
  * - Database env vars (same as main server)
  */
+
+// Load dayjs plugins (same as server.js)
+const dayjs = require("dayjs");
+dayjs.extend(require("dayjs/plugin/utc"));
+dayjs.extend(require("../modules/dayjs/plugin/timezone"));
+dayjs.extend(require("dayjs/plugin/customParseFormat"));
+
 const { log } = require("../../src/util");
 const Database = require("../database");
 const { MonitorWorker } = require("./monitor-worker");
