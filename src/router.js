@@ -35,6 +35,7 @@ import Proxies from "./components/settings/Proxies.vue";
 import About from "./components/settings/About.vue";
 import RemoteBrowsers from "./components/settings/RemoteBrowsers.vue";
 import Team from "./components/settings/Team.vue";
+import Organization from "./components/settings/Organization.vue";
 
 const routes = [
     {
@@ -138,6 +139,10 @@ const routes = [
                             {
                                 path: "team",
                                 component: Team,
+                            },
+                            {
+                                path: "organization",
+                                component: Organization,
                             },
                             {
                                 path: "about",

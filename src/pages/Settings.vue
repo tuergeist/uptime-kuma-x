@@ -116,6 +116,9 @@ export default {
                 team: {
                     title: this.$t("Team Members"),
                 },
+                organization: {
+                    title: this.$t("Organization"),
+                },
                 proxies: {
                     title: this.$t("Proxies"),
                 },

@@ -23,6 +23,11 @@
                 </div>
 
                 <div class="form-floating mt-3">
+                    <input id="organizationName" v-model="organizationName" type="text" class="form-control" :placeholder="$t('Organization Name')" required data-cy="organization-input">
+                    <label for="organizationName">{{ $t("Organization Name") }}</label>
+                </div>
+
+                <div class="form-floating mt-3">
                     <input id="floatingInput" v-model="username" type="text" class="form-control" :placeholder="$t('Username')" required data-cy="username-input">
                     <label for="floatingInput">{{ $t("Username") }}</label>
                 </div>
@@ -50,6 +55,7 @@ export default {
     data() {
         return {
             processing: false,
+            organizationName: "",
             username: "",
             password: "",
             repeatPassword: "",
@@ -81,7 +87,7 @@ export default {
                 return;
             }
 
-            this.$root.getSocket().emit("setup", this.username, this.password, (res) => {
+            this.$root.getSocket().emit("setup", this.username, this.password, this.organizationName, (res) => {
                 this.processing = false;
                 this.$root.toastRes(res);
 

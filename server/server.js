@@ -157,6 +157,7 @@ const { SetupDatabase } = require("./setup-database");
 const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler");
 const { registrationSocketHandler } = require("./socket-handlers/registration-socket-handler");
 const { teamSocketHandler } = require("./socket-handlers/team-socket-handler");
+const { tenantSocketHandler } = require("./socket-handlers/tenant-socket-handler");
 
 // Multi-tenancy
 const { resolveTenant } = require("./middleware/tenant");
@@ -736,8 +737,14 @@ let needSetup = false;
             callback(needSetup);
         });
 
-        socket.on("setup", async (username, password, callback) => {
+        socket.on("setup", async (username, password, organizationName, callback) => {
             try {
+                // Handle backwards compatibility - if organizationName is a function, it's the callback
+                if (typeof organizationName === "function") {
+                    callback = organizationName;
+                    organizationName = null;
+                }
+
                 if (passwordStrength(password).value === "Too weak") {
                     throw new Error("Password is too weak. It should contain alphabetic and numeric characters. It must be at least 6 characters in length.");
                 }
@@ -747,10 +754,17 @@ let needSetup = false;
                     throw new Error("Uptime Kuma has been initialized. If you want to run setup again, please delete the database.");
                 }
 
+                // Use organization name or fallback to username's organization
+                const tenantName = organizationName?.trim() || `${username}'s Organization`;
+
+                // Generate unique slug from organization name
+                const { getUniqueTenantSlug } = require("./utils/tenant-slug");
+                const tenantSlug = await getUniqueTenantSlug(tenantName);
+
                 // Create a tenant for the admin user
                 let tenant = R.dispense("tenant");
-                tenant.slug = username.toLowerCase().replace(/[^a-z0-9]/g, "-").substring(0, 63);
-                tenant.name = `${username}'s Organization`;
+                tenant.slug = tenantSlug;
+                tenant.name = tenantName;
                 tenant.status = "active";
                 tenant.settings = JSON.stringify({});
 
@@ -1847,6 +1861,7 @@ let needSetup = false;
         chartSocketHandler(socket);
         registrationSocketHandler(socket, server);
         teamSocketHandler(socket, server, io);
+        tenantSocketHandler(socket, server);
 
         log.debug("server", "added all socket handlers");
 

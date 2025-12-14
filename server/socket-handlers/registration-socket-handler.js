@@ -3,20 +3,7 @@ const { log } = require("../../src/util");
 const passwordHash = require("../password-hash");
 const { passwordStrength } = require("check-password-strength");
 const User = require("../model/user");
-
-/**
- * Generate a URL-safe slug from a string
- * @param {string} str Input string
- * @returns {string} URL-safe slug
- */
-function generateSlug(str) {
-    return str
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, "") // Remove non-word chars
-        .replace(/[\s_-]+/g, "-") // Replace spaces/underscores with hyphens
-        .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
-}
+const { getUniqueTenantSlug } = require("../utils/tenant-slug");
 
 /**
  * Validate email format
@@ -127,17 +114,8 @@ module.exports.registrationSocketHandler = (socket, server) => {
                 throw new Error("Email already registered");
             }
 
-            // Generate unique tenant slug
-            let baseSlug = generateSlug(tenantName);
-            if (!baseSlug) {
-                baseSlug = "tenant";
-            }
-            let slug = baseSlug;
-            let counter = 1;
-            while (await R.findOne("tenant", " slug = ? ", [slug])) {
-                slug = `${baseSlug}-${counter}`;
-                counter++;
-            }
+            // Generate unique tenant slug using shared utility
+            const slug = await getUniqueTenantSlug(tenantName);
 
             // Get the free plan ID
             const freePlan = await R.findOne("plan", " slug = ? ", ["free"]);
