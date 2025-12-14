@@ -1,1 +1,9 @@
 # This is a .gitignore style file for 'GrantBirki/json-yaml-validate' Action workflow
+
+# Claude Code config files (not standard JSON)
+.claude/bash_commands.json
+
+# K8s multi-document YAML files
+k8s/base/postgresql.yaml
+k8s/base/redis.yaml
+k8s/base/grafana-dashboard-cm.yaml
