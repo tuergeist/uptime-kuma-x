@@ -15,16 +15,14 @@
                     <div class="mb-4">
                         <label for="slug" class="form-label">{{ $t("Slug") }}</label>
                         <div class="input-group">
-                            <span id="basic-addon3" class="input-group-text">/status/</span>
+                            <span id="basic-addon3" class="input-group-text">/status/{{ tenantSlug }}-</span>
                             <input id="slug" v-model="slug" type="text" class="form-control" autocapitalize="none" required data-testid="slug-input">
                         </div>
                         <div class="form-text">
                             <ul>
                                 <li>{{ $t("Accept characters:") }} <mark>a-z</mark> <mark>0-9</mark> <mark>-</mark></li>
                                 <li>{{ $t("No consecutive dashes") }} <mark>--</mark></li>
-                                <i18n-t tag="li" keypath="statusPageSpecialSlugDesc">
-                                    <mark class="me-1">default</mark>
-                                </i18n-t>
+                                <li>{{ $t("Your status page URL will be:") }} <mark>/status/{{ tenantSlug }}-{{ slug || "your-slug" }}</mark></li>
                             </ul>
                         </div>
                     </div>
@@ -49,6 +47,11 @@ export default {
             slug: "",
             processing: false,
         };
+    },
+    computed: {
+        tenantSlug() {
+            return this.$root.info?.tenantSlug || "default";
+        },
     },
     methods: {
         /**

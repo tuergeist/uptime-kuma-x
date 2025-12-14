@@ -179,6 +179,17 @@ async function sendInfo(socket, hideVersion = false) {
         dbType = Database.dbConfig.type;
     }
 
+    // Get tenant info if user is logged in
+    let tenantSlug = null;
+    let tenantName = null;
+    if (socket.tenantId) {
+        const tenant = await R.findOne("tenant", " id = ? ", [socket.tenantId]);
+        if (tenant) {
+            tenantSlug = tenant.slug;
+            tenantName = tenant.name;
+        }
+    }
+
     socket.emit("info", {
         version,
         latestVersion,
@@ -187,6 +198,8 @@ async function sendInfo(socket, hideVersion = false) {
         primaryBaseURL: await setting("primaryBaseURL"),
         serverTimezone: await server.getTimezone(),
         serverTimezoneOffset: server.getTimezoneOffset(),
+        tenantSlug,
+        tenantName,
     });
 }
 
