@@ -136,6 +136,93 @@ config/                  # Build configs (vite, playwright)
 - Migrations: `db/knex_migrations/` using Knex.js
 - Migration filename format validated by CI
 
+## Infrastructure & Deployment
+
+### Kubernetes Cluster
+- **Type**: Talos Linux (self-hosted), 2 nodes (cp-1, worker-1)
+- **Version**: Kubernetes v1.34.0
+- **Kubeconfig**: `~/.ssh/talos-kubeconfig.yaml`
+- **IMPORTANT**: Always use `kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml`
+
+### Environments
+
+| Environment | Namespace | URL | Image Tag | Trigger |
+|-------------|-----------|-----|-----------|---------|
+| Staging | `uptimehive-staging` | staging.uptimehive.com | `staging` | Push to master |
+| Production | `uptimehive` | uptimehive.com | `production` | Push v* tag |
+
+### Deployment Structure
+
+```
+k8s/
+├── base/                 # Shared resources (NO hardcoded namespace)
+│   ├── deployment.yaml
+│   ├── worker-deployment.yaml
+│   ├── postgresql.yaml
+│   ├── redis.yaml
+│   ├── backup-cronjob.yaml
+│   └── ...
+└── overlays/
+    ├── staging/          # namespace, ingress, secrets for staging
+    └── production/       # namespace, ingress, secrets for production
+```
+
+### Common kubectl Commands
+
+```bash
+# Check pods
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml get pods -n uptimehive-staging
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml get pods -n uptimehive
+
+# View logs
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml logs -n uptimehive-staging deployment/uptime-kuma
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml logs -n uptimehive-staging deployment/uptime-kuma-worker
+
+# Deploy manually (usually done by CI/CD)
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml apply -k k8s/overlays/staging/
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml apply -k k8s/overlays/production/
+
+# Rollback
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml rollout undo deployment/uptime-kuma -n uptimehive
+
+# Restart deployment
+kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml rollout restart deployment/uptime-kuma -n uptimehive-staging
+```
+
+### Backups
+
+- **Storage**: AWS S3 `s3://uptimehive-backups/` (eu-central-1)
+- **Prefixes**: `staging/` and `production/`
+- **Schedule**: Daily at 2 AM UTC (CronJob)
+- **Pre-deploy**: Automatic backup before each deployment
+- **Retention**: 30 days in S3
+- **IAM User**: `uptimehive-backup-writer` (write-only access)
+
+### Secrets Management
+
+**In Kubernetes (applied manually, NOT in git):**
+- `backup-s3-secrets` - S3 credentials for backups
+- `postgresql-secrets` - Database credentials
+- `uptime-kuma-secrets` - App secrets (DB connection, Redis URL, APP_URL)
+
+**In GitHub:**
+- `KUBECONFIG` - Base64-encoded kubeconfig for deployments
+
+**NEVER commit actual credentials to git.** Secret YAML files in overlays contain placeholders only.
+
+### CI/CD Workflows
+
+| Workflow | File | Trigger | Action |
+|----------|------|---------|--------|
+| Build | `docker-build.yml` | Push to master or v* tag | Build & push to ghcr.io |
+| Deploy Staging | `deploy-staging.yml` | After build on master | Auto-deploy to staging |
+| Deploy Production | `deploy-production.yml` | v* tag or manual | Deploy to production |
+
+### Container Registry
+
+- **Registry**: `ghcr.io/tuergeist/uptime-kuma-x`
+- **Tags**: `master`, `staging`, `production`, `v1.0.0`, `sha-abc1234`
+
 ## Code Style
 
 Strictly enforced by linters:
