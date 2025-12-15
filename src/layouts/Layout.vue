@@ -21,6 +21,13 @@
             </a>
 
             <ul class="nav nav-pills">
+                <!-- Plan Badge -->
+                <li v-if="$root.loggedIn && $root.info.planName" class="nav-item me-2 d-flex align-items-center">
+                    <span class="plan-badge" :class="planBadgeClass">
+                        <font-awesome-icon icon="gem" class="me-1" />
+                        {{ $root.info.planName }}
+                    </span>
+                </li>
                 <li v-if="$root.loggedIn" class="nav-item me-2">
                     <router-link to="/manage-status-page" class="nav-link">
                         <font-awesome-icon icon="stream" /> {{ $t("Status Pages") }}
@@ -167,6 +174,20 @@ export default {
             }
         },
 
+        /**
+         * Returns CSS class for plan badge based on plan name
+         * @returns {string} CSS class name
+         */
+        planBadgeClass() {
+            const planName = this.$root.info.planName?.toLowerCase() || "";
+            if (planName === "enterprise") {
+                return "plan-enterprise";
+            } else if (planName === "pro") {
+                return "plan-pro";
+            }
+            return "plan-free";
+        },
+
     },
 
     watch: {
@@ -227,6 +248,39 @@ export default {
 
     &.status-page {
         background-color: rgba(255, 255, 255, 0.1);
+    }
+}
+
+// Plan Badge Styles
+.plan-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    &.plan-free {
+        background-color: #6c757d;
+        color: #fff;
+    }
+
+    &.plan-pro {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+    }
+
+    &.plan-enterprise {
+        background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);
+        color: #fff;
+    }
+
+    .dark & {
+        &.plan-free {
+            background-color: #495057;
+        }
     }
 }
 

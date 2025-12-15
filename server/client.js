@@ -182,11 +182,19 @@ async function sendInfo(socket, hideVersion = false) {
     // Get tenant info if user is logged in
     let tenantSlug = null;
     let tenantName = null;
+    let planName = null;
     if (socket.tenantId) {
-        const tenant = await R.findOne("tenant", " id = ? ", [socket.tenantId]);
+        const tenant = await R.findOne("tenant", " id = ? ", [ socket.tenantId ]);
         if (tenant) {
             tenantSlug = tenant.slug;
             tenantName = tenant.name;
+            // Get plan name
+            if (tenant.plan_id) {
+                const plan = await R.findOne("plan", " id = ? ", [ tenant.plan_id ]);
+                if (plan) {
+                    planName = plan.name;
+                }
+            }
         }
     }
 
@@ -200,6 +208,7 @@ async function sendInfo(socket, hideVersion = false) {
         serverTimezoneOffset: server.getTimezoneOffset(),
         tenantSlug,
         tenantName,
+        planName,
     });
 }
 
