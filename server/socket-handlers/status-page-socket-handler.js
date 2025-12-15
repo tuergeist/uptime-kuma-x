@@ -198,15 +198,26 @@ module.exports.statusPageSocketHandler = (socket) => {
                 groupBean.public = true;
                 groupBean.weight = groupOrder++;
 
-                const groupId = await R.store(groupBean);
+                await R.store(groupBean);
 
-                // Use returned ID from store (PostgreSQL may not update bean.id immediately)
-                const effectiveGroupId = groupId || groupBean.id;
-                if (effectiveGroupId) {
-                    await R.exec("DELETE FROM monitor_group WHERE group_id = ? ", [
-                        effectiveGroupId
+                // For PostgreSQL, fetch the group ID if not set (R.store doesn't auto-populate id)
+                let effectiveGroupId = groupBean.id;
+                if (!effectiveGroupId) {
+                    const savedGroup = await R.findOne("group", " status_page_id = ? AND name = ? AND weight = ? ", [
+                        statusPage.id,
+                        group.name,
+                        groupBean.weight
                     ]);
+                    effectiveGroupId = savedGroup?.id;
                 }
+
+                if (!effectiveGroupId) {
+                    throw new Error("Failed to save group - could not retrieve group ID");
+                }
+
+                await R.exec("DELETE FROM monitor_group WHERE group_id = ? ", [
+                    effectiveGroupId
+                ]);
 
                 let monitorOrder = 1;
 
