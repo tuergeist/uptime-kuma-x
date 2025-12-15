@@ -80,6 +80,28 @@ function isAdmin(socket) {
     return socket.userRole === "owner" || socket.userRole === "admin";
 }
 
+/**
+ * Check if the user is a super-admin (platform-wide access)
+ * @param {Socket} socket Socket instance
+ * @returns {boolean} True if user is super-admin
+ */
+function isSuperAdmin(socket) {
+    return socket.isSuperAdmin === true;
+}
+
+/**
+ * Check if the user is a super-admin, throw error if not
+ * @param {Socket} socket Socket instance
+ * @returns {void}
+ * @throws {Error} If user is not a super-admin
+ */
+function checkSuperAdmin(socket) {
+    checkLogin(socket);
+    if (!socket.isSuperAdmin) {
+        throw new Error("permissionDeniedSuperAdminOnly");
+    }
+}
+
 module.exports = {
     checkLogin,
     checkOwner,
@@ -88,4 +110,6 @@ module.exports = {
     hasRole,
     isOwner,
     isAdmin,
+    isSuperAdmin,
+    checkSuperAdmin,
 };

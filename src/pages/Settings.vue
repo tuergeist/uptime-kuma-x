@@ -26,6 +26,22 @@
                         </div>
                     </router-link>
 
+                    <!-- Admin Section (Super-Admin Only) -->
+                    <template v-if="isSuperAdmin">
+                        <div class="menu-divider">
+                            <span>{{ $t("Admin") }}</span>
+                        </div>
+                        <router-link
+                            v-for="(item, key) in adminMenus"
+                            :key="'admin-' + key"
+                            :to="`/settings/${key}`"
+                        >
+                            <div class="menu-item admin-item">
+                                {{ item.title }}
+                            </div>
+                        </router-link>
+                    </template>
+
                     <!-- Logout Button -->
                     <a v-if="$root.isMobile && $root.loggedIn && $root.socket.token !== 'autoLogin'" class="logout" @click.prevent="$root.logout">
                         <div class="menu-item">
@@ -36,7 +52,7 @@
                 </div>
                 <div class="settings-content col-lg-9 col-md-7">
                     <div v-if="currentPage" class="settings-content-header">
-                        {{ subMenus[currentPage].title }}
+                        {{ getPageTitle(currentPage) }}
                     </div>
                     <div class="mx-3">
                         <router-view v-slot="{ Component }">
@@ -60,6 +76,7 @@ export default {
             show: true,
             settings: {},
             settingsLoaded: false,
+            isSuperAdmin: false,
         };
     },
 
@@ -127,6 +144,14 @@ export default {
                 },
             };
         },
+
+        adminMenus() {
+            return {
+                plans: {
+                    title: this.$t("Plans"),
+                },
+            };
+        },
     },
 
     watch: {
@@ -138,9 +163,37 @@ export default {
     mounted() {
         this.loadSettings();
         this.loadGeneralPage();
+        this.loadSuperAdminStatus();
     },
 
     methods: {
+
+        /**
+         * Get page title from subMenus or adminMenus
+         * @param {string} page Page key
+         * @returns {string} Page title
+         */
+        getPageTitle(page) {
+            if (this.subMenus[page]) {
+                return this.subMenus[page].title;
+            }
+            if (this.adminMenus[page]) {
+                return this.adminMenus[page].title;
+            }
+            return "";
+        },
+
+        /**
+         * Load super-admin status
+         * @returns {void}
+         */
+        loadSuperAdminStatus() {
+            this.$root.getSocket().emit("getSuperAdminStatus", (res) => {
+                if (res.ok) {
+                    this.isSuperAdmin = res.isSuperAdmin;
+                }
+            });
+        },
 
         /**
          * Load the general settings page
@@ -289,6 +342,24 @@ footer {
         .dark & {
             background: $dark-header-bg;
         }
+    }
+
+    .menu-divider {
+        margin: 1em 0.5em 0.5em;
+        padding: 0.5em 1em;
+        font-size: 0.75em;
+        font-weight: bold;
+        text-transform: uppercase;
+        color: $secondary-text;
+        border-top: 1px solid #dee2e6;
+
+        .dark & {
+            border-top-color: $dark-border-color;
+        }
+    }
+
+    .admin-item {
+        color: $primary;
     }
 }
 

@@ -158,6 +158,7 @@ const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler")
 const { registrationSocketHandler } = require("./socket-handlers/registration-socket-handler");
 const { teamSocketHandler } = require("./socket-handlers/team-socket-handler");
 const { tenantSocketHandler } = require("./socket-handlers/tenant-socket-handler");
+const { planSocketHandler } = require("./socket-handlers/plan-socket-handler");
 
 // Multi-tenancy
 const { resolveTenant } = require("./middleware/tenant");
@@ -774,12 +775,13 @@ let needSetup = false;
 
                 await R.store(tenant);
 
-                // Create the admin user as owner of the tenant
+                // Create the admin user as owner of the tenant and super-admin
                 let user = R.dispense("user");
                 user.username = username;
                 user.password = await passwordHash.generate(password);
                 user.tenant_id = tenant.id;
                 user.role = "owner";
+                user.is_super_admin = true; // First user is platform super-admin
                 await R.store(user);
 
                 needSetup = false;
@@ -1862,6 +1864,7 @@ let needSetup = false;
         registrationSocketHandler(socket, server);
         teamSocketHandler(socket, server, io);
         tenantSocketHandler(socket, server);
+        planSocketHandler(socket, server);
 
         log.debug("server", "added all socket handlers");
 
@@ -1984,6 +1987,7 @@ async function afterLogin(socket, user) {
     socket.userID = user.id;
     socket.tenantId = user.tenant_id || 1; // Fallback for migration period
     socket.userRole = user.role || "member"; // For role-based access control
+    socket.isSuperAdmin = user.is_super_admin === 1 || user.is_super_admin === true; // Platform-wide admin
 
     // Join tenant-specific rooms (new multi-tenancy pattern)
     joinTenantRooms(socket, socket.tenantId, user.id);
