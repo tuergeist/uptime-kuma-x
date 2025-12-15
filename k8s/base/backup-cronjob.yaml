@@ -1,0 +1,83 @@
+---
+# PostgreSQL backup CronJob - runs daily
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgresql-backup
+  # namespace set by overlay
+  labels:
+    app.kubernetes.io/name: postgresql-backup
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: uptimehive
+spec:
+  # Daily at 2 AM UTC
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgresql-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="/backups/uptimehive_${TIMESTAMP}.sql.gz"
+                  echo "Starting backup at $(date)"
+                  pg_dump -h postgresql -U $POSTGRES_USER -d $POSTGRES_DB | gzip > "$BACKUP_FILE"
+                  echo "Backup completed: $BACKUP_FILE"
+                  # Keep last 7 days of backups
+                  find /backups -name "uptimehive_*.sql.gz" -mtime +7 -delete
+                  echo "Cleanup completed"
+                  ls -la /backups/
+              envFrom:
+                - secretRef:
+                    name: postgresql-secrets
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgresql-secrets
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: postgresql-backups
+---
+# PVC for storing backups
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-backups
+  # namespace set by overlay
+  labels:
+    app.kubernetes.io/name: postgresql-backup
+    app.kubernetes.io/part-of: uptimehive
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: local-path

@@ -51,6 +51,10 @@ jobs:
             type=sha,prefix=sha-
             # Latest tag only on default branch
             type=raw,value=latest,enable={{is_default_branch}}
+            # Staging tag on master branch push
+            type=raw,value=staging,enable={{is_default_branch}}
+            # Production tag on version tags
+            type=raw,value=production,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5

@@ -2,7 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: uptime-kuma-worker
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: uptime-kuma-worker
     app.kubernetes.io/component: worker
@@ -12,9 +12,10 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: uptime-kuma-worker
+  # namespaceSelector patched by overlay
   namespaceSelector:
     matchNames:
-      - uptimehive
+      - placeholder
   endpoints:
     - port: health
       path: /metrics

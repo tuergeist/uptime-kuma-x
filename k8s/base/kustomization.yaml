@@ -1,21 +1,25 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: uptimehive
+# Note: namespace is NOT set here - overlays will set environment-specific namespace
+# Note: namespace.yaml, ingress.yaml, and secret.yaml are NOT in base - overlays provide them
 
 resources:
-  - namespace.yaml
   - configmap.yaml
-  - secret.yaml
   - postgresql.yaml
   - redis.yaml
   - deployment.yaml
   - worker-deployment.yaml
   - service.yaml
   - worker-service.yaml
-  - ingress.yaml
   - servicemonitor.yaml
   - worker-servicemonitor.yaml
+  - backup-cronjob.yaml
+
+# Default image - overlays override with environment-specific tags
+images:
+  - name: ghcr.io/tuergeist/uptime-kuma-x
+    newTag: master
 
 # Note: commonLabels removed because it adds labels to selectors,
 # which are immutable on existing StatefulSets (postgresql, redis).

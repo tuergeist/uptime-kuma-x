@@ -3,7 +3,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: redis-data
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: redis
     app.kubernetes.io/part-of: uptimehive
@@ -19,7 +19,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: redis
     app.kubernetes.io/part-of: uptimehive
@@ -81,7 +81,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: redis
     app.kubernetes.io/part-of: uptimehive

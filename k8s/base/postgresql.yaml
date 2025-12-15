@@ -3,7 +3,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgresql-data
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: postgresql
     app.kubernetes.io/part-of: uptimehive
@@ -19,7 +19,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgresql-secrets
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: postgresql
     app.kubernetes.io/part-of: uptimehive
@@ -33,7 +33,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgresql
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: postgresql
     app.kubernetes.io/part-of: uptimehive
@@ -101,7 +101,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgresql
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: postgresql
     app.kubernetes.io/part-of: uptimehive

@@ -1,0 +1,128 @@
+name: Deploy to Production
+
+on:
+  # Triggered by version tags
+  push:
+    tags:
+      - 'v*'
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy (default: production)'
+        required: false
+        default: 'production'
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NAMESPACE: uptimehive
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: image_tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Use 'production' tag which is set by docker-build on version tags
+            echo "tag=production" >> $GITHUB_OUTPUT
+          else
+            echo "tag=production" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for Docker image
+        if: github.event_name == 'push'
+        run: |
+          echo "Waiting for Docker build workflow to complete..."
+          # Give the docker-build workflow time to push the image
+          sleep 60
+
+          # Verify the image exists
+          echo "Verifying image availability..."
+          # The image should be available after docker-build completes
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region eu-central-1
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Run pre-deployment backup
+        run: |
+          echo "Creating pre-deployment backup..."
+          # Delete any existing pre-deploy backup job
+          kubectl delete job pre-deploy-backup -n ${{ env.NAMESPACE }} --ignore-not-found=true
+
+          # Apply the pre-deploy backup job
+          kubectl apply -f k8s/overlays/production/pre-deploy-backup-job.yaml -n ${{ env.NAMESPACE }}
+
+          # Wait for the backup job to complete (timeout 5 minutes)
+          kubectl wait --for=condition=complete job/pre-deploy-backup -n ${{ env.NAMESPACE }} --timeout=300s || {
+            echo "Backup job failed or timed out"
+            kubectl logs job/pre-deploy-backup -n ${{ env.NAMESPACE }} || true
+            exit 1
+          }
+          echo "Pre-deployment backup completed successfully"
+
+      - name: Deploy to Production
+        run: |
+          echo "Deploying to production with image tag: ${{ steps.image_tag.outputs.tag }}"
+
+          # Apply kustomize with production overlay
+          kubectl apply -k k8s/overlays/production/
+
+          # Wait for deployments to be ready
+          echo "Waiting for deployments to be ready..."
+          kubectl rollout status deployment/uptime-kuma -n ${{ env.NAMESPACE }} --timeout=300s
+          kubectl rollout status deployment/uptime-kuma-worker -n ${{ env.NAMESPACE }} --timeout=300s
+          kubectl rollout status deployment/redis -n ${{ env.NAMESPACE }} --timeout=300s
+
+          echo "Production deployment completed successfully"
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment..."
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          kubectl get svc -n ${{ env.NAMESPACE }}
+          kubectl get ingress -n ${{ env.NAMESPACE }}
+
+      - name: Create deployment summary
+        run: |
+          echo "## Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag:** ${{ steps.image_tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Namespace:** ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" == "push" ]; then
+            echo "- **Git Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Production deployment failed!"
+          echo "Check the workflow logs for details"
+          # Add notification integration here (Slack, Discord, etc.)

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: uptime-kuma
-  namespace: uptimehive
+  # namespace set by overlay
   labels:
     app.kubernetes.io/name: uptime-kuma
     app.kubernetes.io/part-of: uptimehive
