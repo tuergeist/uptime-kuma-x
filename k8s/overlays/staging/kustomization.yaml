@@ -8,6 +8,7 @@ resources:
   - namespace.yaml
   - ingress.yaml
   - secret.yaml
+  - backup-s3-secret.yaml
   - pre-deploy-backup-job.yaml
 
 # Override image tag for staging

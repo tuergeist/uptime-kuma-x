@@ -1,6 +1,5 @@
 ---
-# Pre-deployment backup Job - triggered before deployments
-# This is a one-time Job (not CronJob) that runs as part of deployment
+# Pre-deployment backup Job - triggered before deployments, uploads to S3
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -10,7 +9,6 @@ metadata:
     app.kubernetes.io/component: backup
     app.kubernetes.io/part-of: uptimehive
   annotations:
-    # Helm-style hook annotations for GitOps tools
     argocd.argoproj.io/hook: PreSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
@@ -22,8 +20,8 @@ spec:
         app.kubernetes.io/name: pre-deploy-backup
     spec:
       restartPolicy: OnFailure
-      containers:
-        - name: backup
+      initContainers:
+        - name: create-backup
           image: postgres:16-alpine
           command:
             - /bin/sh
@@ -31,10 +29,11 @@ spec:
             - |
               set -e
               TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-              BACKUP_FILE="/backups/pre_deploy_${TIMESTAMP}.sql.gz"
+              BACKUP_FILE="/backups/pre_deploy_staging_${TIMESTAMP}.sql.gz"
               echo "Starting pre-deployment backup at $(date)"
               pg_dump -h postgresql -U $POSTGRES_USER -d $POSTGRES_DB | gzip > "$BACKUP_FILE"
-              echo "Pre-deployment backup completed: $BACKUP_FILE"
+              echo "Backup completed: $BACKUP_FILE"
+              echo "$BACKUP_FILE" > /backups/latest_backup.txt
               ls -la /backups/
           envFrom:
             - secretRef:
@@ -55,7 +54,39 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      containers:
+        - name: upload-to-s3
+          image: minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              BACKUP_FILE=$(cat /backups/latest_backup.txt)
+              FILENAME=$(basename "$BACKUP_FILE")
+
+              echo "Configuring S3 connection..."
+              mc alias set s3backup "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+
+              echo "Uploading $FILENAME to S3..."
+              mc cp "$BACKUP_FILE" "s3backup/$S3_BUCKET/$S3_PREFIX/$FILENAME"
+
+              echo "Pre-deployment backup uploaded successfully to S3"
+              mc ls "s3backup/$S3_BUCKET/$S3_PREFIX/" | tail -5
+          envFrom:
+            - secretRef:
+                name: backup-s3-secrets
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
       volumes:
         - name: backups
-          persistentVolumeClaim:
-            claimName: postgresql-backups
+          emptyDir:
+            sizeLimit: 2Gi

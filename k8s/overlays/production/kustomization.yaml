@@ -8,6 +8,7 @@ resources:
   - namespace.yaml
   - ingress.yaml
   - secret.yaml
+  - backup-s3-secret.yaml
   - pre-deploy-backup-job.yaml
 
 # Image tag set dynamically by deployment workflow (production or version tag)
