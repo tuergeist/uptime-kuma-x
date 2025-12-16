@@ -36,10 +36,13 @@ spec:
               image: postgres:16-alpine
               securityContext:
                 allowPrivilegeEscalation: false
+                runAsNonRoot: true
                 capabilities:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: false
+                seccompProfile:
+                  type: RuntimeDefault
               command:
                 - /bin/sh
                 - -c
@@ -78,10 +81,13 @@ spec:
               image: minio/mc:latest
               securityContext:
                 allowPrivilegeEscalation: false
+                runAsNonRoot: true
                 capabilities:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: false
+                seccompProfile:
+                  type: RuntimeDefault
               command:
                 - /bin/sh
                 - -c
