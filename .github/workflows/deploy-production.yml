@@ -65,6 +65,17 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
 
+      - name: Create/Update backup S3 secrets
+        run: |
+          kubectl create secret generic backup-s3-secrets \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=S3_ENDPOINT="https://s3.eu-central-1.amazonaws.com" \
+            --from-literal=S3_ACCESS_KEY="${{ secrets.PRODUCTION_S3_ACCESS_KEY }}" \
+            --from-literal=S3_SECRET_KEY="${{ secrets.PRODUCTION_S3_SECRET_KEY }}" \
+            --from-literal=S3_BUCKET="uptimehive-backups" \
+            --from-literal=S3_PREFIX="production" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Run pre-deployment backup
         run: |
           echo "Creating pre-deployment backup..."
