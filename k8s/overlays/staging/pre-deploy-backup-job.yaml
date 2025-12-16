@@ -76,6 +76,9 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: false
+          env:
+            - name: HOME
+              value: /tmp
           command:
             - /bin/sh
             - -c
