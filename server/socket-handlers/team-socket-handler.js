@@ -4,6 +4,7 @@ const { R } = require("redbean-node");
 const { log } = require("../../src/util");
 const { nanoid } = require("nanoid");
 const { sendInvitationEmail, isEmailConfigured, getAppUrl } = require("../services/email-service");
+const { checkUserLimit, createLimitError } = require("../plan-enforcement");
 
 /**
  * Handlers for team management (members and invitations)
@@ -103,6 +104,13 @@ module.exports.teamSocketHandler = (socket, server, io) => {
             const validRoles = ["member", "admin"];
             if (!validRoles.includes(role)) {
                 throw new Error("Invalid role");
+            }
+
+            // Check user limit before creating invitation
+            const limitCheck = await checkUserLimit(tenantId);
+            if (!limitCheck.allowed) {
+                callback(createLimitError("users", limitCheck.current, limitCheck.limit));
+                return;
             }
 
             // Check if user already exists with this email

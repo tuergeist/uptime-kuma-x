@@ -37,6 +37,7 @@ import RemoteBrowsers from "./components/settings/RemoteBrowsers.vue";
 import Team from "./components/settings/Team.vue";
 import Organization from "./components/settings/Organization.vue";
 import Plans from "./components/settings/Plans.vue";
+import PlanStatus from "./components/settings/PlanStatus.vue";
 
 const routes = [
     {
@@ -144,6 +145,10 @@ const routes = [
                             {
                                 path: "organization",
                                 component: Organization,
+                            },
+                            {
+                                path: "plan-status",
+                                component: PlanStatus,
                             },
                             {
                                 path: "about",

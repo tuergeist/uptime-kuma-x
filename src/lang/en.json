@@ -1355,5 +1355,21 @@
     "Plan updated successfully": "Plan updated successfully",
     "Plan deleted successfully": "Plan deleted successfully",
     "Plan deactivated": "Plan deactivated",
-    "Optional": "Optional"
+    "Optional": "Optional",
+    "Plan & Usage": "Plan & Usage",
+    "Current Plan": "Current Plan",
+    "Get started with basic monitoring": "Get started with basic monitoring",
+    "For growing teams and businesses": "For growing teams and businesses",
+    "Unlimited monitoring for large organizations": "Unlimited monitoring for large organizations",
+    "Custom plan": "Custom plan",
+    "Usage": "Usage",
+    "Plan Features": "Plan Features",
+    "Minimum check interval": "Minimum check interval",
+    "Data retention": "Data retention",
+    "days": "days",
+    "seconds": "seconds",
+    "minutes": "minutes",
+    "Need more?": "Need more?",
+    "Upgrade your plan to unlock more monitors, team members, and features.": "Upgrade your plan to unlock more monitors, team members, and features.",
+    "Contact for Upgrade": "Contact for Upgrade"
 }

@@ -7,6 +7,7 @@ const Database = require("../database");
 const apicache = require("../modules/apicache");
 const StatusPage = require("../model/status_page");
 const { UptimeKumaServer } = require("../uptime-kuma-server");
+const { checkStatusPageLimit, createLimitError } = require("../plan-enforcement");
 
 /**
  * Socket handlers for status page
@@ -287,6 +288,14 @@ module.exports.statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
+            // Check status page limit
+            const tenantId = socket.tenantId || 1;
+            const limitCheck = await checkStatusPageLimit(tenantId);
+            if (!limitCheck.allowed) {
+                callback(createLimitError("statusPages", limitCheck.current, limitCheck.limit));
+                return;
+            }
+
             title = title?.trim();
             slug = slug?.trim();
 
@@ -306,8 +315,7 @@ module.exports.statusPageSocketHandler = (socket) => {
             checkSlug(slug);
 
             // Get tenant slug to prefix status page slug
-            const tenantId = socket.tenantId || 1;
-            const tenant = await R.findOne("tenant", " id = ? ", [tenantId]);
+            const tenant = await R.findOne("tenant", " id = ? ", [ tenantId ]);
             const tenantSlug = tenant?.slug || "default";
 
             // Prefix slug with tenant slug (e.g., "acme-status" for tenant "acme")

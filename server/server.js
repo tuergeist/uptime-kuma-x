@@ -112,6 +112,7 @@ const passwordHash = require("./password-hash");
 
 const { Prometheus } = require("./prometheus");
 const { UptimeCalculator } = require("./uptime-calculator");
+const { checkMonitorLimit, enforceMinInterval, createLimitError, getPlanUsage } = require("./plan-enforcement");
 
 const hostname = config.hostname;
 
@@ -808,6 +809,24 @@ let needSetup = false;
         socket.on("add", async (monitor, callback) => {
             try {
                 checkLogin(socket);
+
+                // Check monitor limit
+                const tenantId = socket.tenantId || 1;
+                const limitCheck = await checkMonitorLimit(tenantId);
+                if (!limitCheck.allowed) {
+                    callback(createLimitError("monitors", limitCheck.current, limitCheck.limit));
+                    return;
+                }
+
+                // Enforce minimum check interval
+                if (monitor.interval) {
+                    const intervalCheck = await enforceMinInterval(tenantId, monitor.interval);
+                    if (intervalCheck.wasAdjusted) {
+                        monitor.interval = intervalCheck.interval;
+                        log.info("monitor", `Adjusted interval to plan minimum: ${intervalCheck.minAllowed}s`);
+                    }
+                }
+
                 let bean = R.dispense("monitor");
 
                 let notificationIDList = monitor.notificationIDList;
@@ -924,7 +943,17 @@ let needSetup = false;
                 let removeGroupChildren = false;
                 checkLogin(socket);
 
-                let bean = await R.findOne("monitor", " id = ? AND tenant_id = ? ", [ monitor.id, socket.tenantId || 1 ]);
+                // Enforce minimum check interval
+                const tenantId = socket.tenantId || 1;
+                if (monitor.interval) {
+                    const intervalCheck = await enforceMinInterval(tenantId, monitor.interval);
+                    if (intervalCheck.wasAdjusted) {
+                        monitor.interval = intervalCheck.interval;
+                        log.info("monitor", `Adjusted interval to plan minimum: ${intervalCheck.minAllowed}s`);
+                    }
+                }
+
+                let bean = await R.findOne("monitor", " id = ? AND tenant_id = ? ", [ monitor.id, tenantId ]);
 
                 if (!bean || bean.user_id !== socket.userID) {
                     throw new Error("Permission denied.");
@@ -1091,6 +1120,25 @@ let needSetup = false;
                 });
             } catch (e) {
                 log.error("monitor", e);
+                callback({
+                    ok: false,
+                    msg: e.message,
+                });
+            }
+        });
+
+        // Get plan usage for the plan status page
+        socket.on("getPlanUsage", async (callback) => {
+            try {
+                checkLogin(socket);
+                const tenantId = socket.tenantId || 1;
+                const usage = await getPlanUsage(tenantId);
+                callback({
+                    ok: true,
+                    ...usage,
+                });
+            } catch (e) {
+                log.error("plan", e);
                 callback({
                     ok: false,
                     msg: e.message,

@@ -136,6 +136,9 @@ export default {
                 organization: {
                     title: this.$t("Organization"),
                 },
+                "plan-status": {
+                    title: this.$t("Plan & Usage"),
+                },
                 proxies: {
                     title: this.$t("Proxies"),
                 },
