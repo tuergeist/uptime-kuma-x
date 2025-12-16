@@ -24,10 +24,22 @@ spec:
             app.kubernetes.io/name: postgresql-backup
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            fsGroup: 70
+            seccompProfile:
+              type: RuntimeDefault
           initContainers:
             # Create backup using postgres image
             - name: create-backup
               image: postgres:16-alpine
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: false
               command:
                 - /bin/sh
                 - -c
@@ -64,6 +76,12 @@ spec:
             # Upload to S3 using minio client
             - name: upload-to-s3
               image: minio/mc:latest
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: false
               command:
                 - /bin/sh
                 - -c

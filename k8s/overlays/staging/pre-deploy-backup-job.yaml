@@ -20,9 +20,21 @@ spec:
         app.kubernetes.io/name: pre-deploy-backup
     spec:
       restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: create-backup
           image: postgres:16-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
           command:
             - /bin/sh
             - -c
@@ -57,6 +69,12 @@ spec:
       containers:
         - name: upload-to-s3
           image: minio/mc:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
           command:
             - /bin/sh
             - -c
