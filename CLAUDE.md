@@ -197,6 +197,21 @@ kubectl --kubeconfig ~/.ssh/talos-kubeconfig.yaml rollout restart deployment/upt
 - **Pre-deploy**: Automatic backup before each deployment
 - **Retention**: 30 days in S3
 - **IAM User**: `uptimehive-backup-writer` (write-only access)
+- **IAM Policy**: `UptimehiveBackupAccess` (inline policy on user)
+- **AWS Profile**: `chbecker` (for managing credentials)
+
+**GitHub Secrets for S3:**
+- `STAGING_S3_ACCESS_KEY` / `STAGING_S3_SECRET_KEY`
+- `PRODUCTION_S3_ACCESS_KEY` / `PRODUCTION_S3_SECRET_KEY`
+
+**Regenerate S3 credentials:**
+```bash
+export AWS_PROFILE=chbecker
+aws iam list-access-keys --user-name uptimehive-backup-writer
+aws iam delete-access-key --user-name uptimehive-backup-writer --access-key-id <OLD_KEY>
+aws iam create-access-key --user-name uptimehive-backup-writer
+# Then update GitHub secrets with new credentials
+```
 
 ### Secrets Management
 
