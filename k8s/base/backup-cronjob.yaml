@@ -26,8 +26,7 @@ spec:
           restartPolicy: OnFailure
           securityContext:
             runAsNonRoot: true
-            runAsUser: 70
-            fsGroup: 70
+            fsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
           initContainers:
@@ -35,14 +34,12 @@ spec:
             - name: create-backup
               image: postgres:16-alpine
               securityContext:
+                runAsUser: 70
                 allowPrivilegeEscalation: false
-                runAsNonRoot: true
                 capabilities:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: false
-                seccompProfile:
-                  type: RuntimeDefault
               command:
                 - /bin/sh
                 - -c
@@ -80,14 +77,12 @@ spec:
             - name: upload-to-s3
               image: minio/mc:latest
               securityContext:
+                runAsUser: 1000
                 allowPrivilegeEscalation: false
-                runAsNonRoot: true
                 capabilities:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: false
-                seccompProfile:
-                  type: RuntimeDefault
               command:
                 - /bin/sh
                 - -c
