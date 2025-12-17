@@ -169,13 +169,11 @@ async function sendAPIKeyList(socket) {
 async function sendInfo(socket, hideVersion = false) {
     let version;
     let latestVersion;
-    let isContainer;
     let dbType;
 
     if (!hideVersion) {
         version = checkVersion.version;
         latestVersion = checkVersion.latestVersion;
-        isContainer = (process.env.UPTIME_KUMA_IS_CONTAINER === "1");
         dbType = Database.dbConfig.type;
     }
 
@@ -201,7 +199,6 @@ async function sendInfo(socket, hideVersion = false) {
     socket.emit("info", {
         version,
         latestVersion,
-        isContainer,
         dbType,
         primaryBaseURL: await setting("primaryBaseURL"),
         serverTimezone: await server.getTimezone(),

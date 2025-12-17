@@ -71,6 +71,11 @@ jobs:
           # Apply kustomize with staging overlay
           kubectl apply -k k8s/overlays/staging/
 
+          # Force rollout restart to pick up new image (tag stays 'staging' but image content changes)
+          echo "Restarting deployments to pick up new image..."
+          kubectl rollout restart deployment/uptime-kuma -n ${{ env.NAMESPACE }}
+          kubectl rollout restart deployment/uptime-kuma-worker -n ${{ env.NAMESPACE }}
+
           # Wait for deployments to be ready
           echo "Waiting for deployments to be ready..."
           kubectl rollout status deployment/uptime-kuma -n ${{ env.NAMESPACE }} --timeout=300s

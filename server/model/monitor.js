@@ -1890,11 +1890,17 @@ class Monitor extends BeanModel {
     }
 
     /**
-     * Make sure monitor interval is between bounds
+     * Make sure monitor interval is between bounds and type is allowed
      * @returns {void}
-     * @throws Interval is outside of range
+     * @throws Interval is outside of range, or monitor type is disabled
      */
     validate() {
+        // Disabled monitor types for multi-tenant SaaS
+        const DISABLED_MONITOR_TYPES = [ "docker", "steam", "gamedig", "radius", "tailscale-ping", "real-browser" ];
+        if (DISABLED_MONITOR_TYPES.includes(this.type)) {
+            throw new Error(`Monitor type "${this.type}" is not available in this environment`);
+        }
+
         if (this.interval > MAX_INTERVAL_SECOND) {
             throw new Error(`Interval cannot be more than ${MAX_INTERVAL_SECOND} seconds`);
         }

@@ -2,32 +2,8 @@ const { log } = require("../../src/util");
 const { Settings } = require("../settings");
 const { sendInfo } = require("../client");
 const { checkLogin } = require("../util-server");
-const GameResolver = require("gamedig/lib/GameResolver");
-const { testChrome } = require("../monitor-types/real-browser-monitor-type");
 const fsAsync = require("fs").promises;
 const path = require("path");
-
-let gameResolver = new GameResolver();
-let gameList = null;
-
-/**
- * Get a game list via GameDig
- * @returns {object[]} list of games supported by GameDig
- */
-function getGameList() {
-    if (gameList == null) {
-        gameList = gameResolver._readGames().games.sort((a, b) => {
-            if ( a.pretty < b.pretty ) {
-                return -1;
-            }
-            if ( a.pretty > b.pretty ) {
-                return 1;
-            }
-            return 0;
-        });
-    }
-    return gameList;
-}
 
 /**
  * Handler for general events
@@ -45,48 +21,6 @@ module.exports.generalSocketHandler = (socket, server) => {
             await sendInfo(socket);
         } catch (e) {
             log.warn("initServerTimezone", e.message);
-        }
-    });
-
-    socket.on("getGameList", async (callback) => {
-        try {
-            checkLogin(socket);
-            callback({
-                ok: true,
-                gameList: getGameList(),
-            });
-        } catch (e) {
-            callback({
-                ok: false,
-                msg: e.message,
-            });
-        }
-    });
-
-    socket.on("testChrome", (executable, callback) => {
-        try {
-            checkLogin(socket);
-            // Just noticed that await call could block the whole socket.io server!!! Use pure promise instead.
-            testChrome(executable).then((version) => {
-                callback({
-                    ok: true,
-                    msg: {
-                        key: "foundChromiumVersion",
-                        values: [ version ],
-                    },
-                    msgi18n: true,
-                });
-            }).catch((e) => {
-                callback({
-                    ok: false,
-                    msg: e.message,
-                });
-            });
-        } catch (e) {
-            callback({
-                ok: false,
-                msg: e.message,
-            });
         }
     });
 

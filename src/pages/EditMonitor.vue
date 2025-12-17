@@ -42,14 +42,6 @@
                                         <option value="dns">
                                             DNS
                                         </option>
-                                        <option value="docker">
-                                            {{ $t("Docker Container") }}
-                                        </option>
-
-                                        <option value="real-browser">
-                                            HTTP(s) - Browser Engine (Chrome/Chromium) (Beta)
-                                        </option>
-
                                         <option value="websocket-upgrade">
                                             Websocket Upgrade
                                         </option>
@@ -65,12 +57,6 @@
                                     </optgroup>
 
                                     <optgroup :label="$t('Specific Monitor Type')">
-                                        <option value="steam">
-                                            {{ $t("Steam Game Server") }}
-                                        </option>
-                                        <option value="gamedig">
-                                            GameDig
-                                        </option>
                                         <option value="mqtt">
                                             MQTT
                                         </option>
@@ -92,14 +78,8 @@
                                         <option value="mongodb">
                                             MongoDB
                                         </option>
-                                        <option value="radius">
-                                            Radius
-                                        </option>
                                         <option value="redis">
                                             Redis
-                                        </option>
-                                        <option v-if="!$root.info.isContainer" value="tailscale-ping">
-                                            Tailscale Ping
                                         </option>
                                     </optgroup>
                                 </select>

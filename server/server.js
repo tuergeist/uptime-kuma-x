@@ -141,18 +141,15 @@ const testMode = !!args["test"] || false;
 const { sendNotificationList, sendHeartbeatList, sendInfo, sendProxyList, sendDockerHostList, sendAPIKeyList, sendRemoteBrowserList, sendMonitorTypeList } = require("./client");
 const { statusPageSocketHandler } = require("./socket-handlers/status-page-socket-handler");
 const { databaseSocketHandler } = require("./socket-handlers/database-socket-handler");
-const { remoteBrowserSocketHandler } = require("./socket-handlers/remote-browser-socket-handler");
 const TwoFA = require("./2fa");
 const StatusPage = require("./model/status_page");
 const { cloudflaredSocketHandler, autoStart: cloudflaredAutoStart, stop: cloudflaredStop } = require("./socket-handlers/cloudflared-socket-handler");
 const { proxySocketHandler } = require("./socket-handlers/proxy-socket-handler");
-const { dockerSocketHandler } = require("./socket-handlers/docker-socket-handler");
 const { maintenanceSocketHandler } = require("./socket-handlers/maintenance-socket-handler");
 const { apiKeySocketHandler } = require("./socket-handlers/api-key-socket-handler");
 const { generalSocketHandler } = require("./socket-handlers/general-socket-handler");
 const { Settings } = require("./settings");
 const apicache = require("./modules/apicache");
-const { resetChrome } = require("./monitor-types/real-browser-monitor-type");
 const { EmbeddedMariaDB } = require("./embedded-mariadb");
 const { SetupDatabase } = require("./setup-database");
 const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler");
@@ -164,6 +161,9 @@ const { planSocketHandler } = require("./socket-handlers/plan-socket-handler");
 // Multi-tenancy
 const { resolveTenant } = require("./middleware/tenant");
 const { joinTenantRooms } = require("./utils/tenant-emit");
+
+// SSRF Protection
+const { validateURL, validateHostname } = require("./utils/ssrf-protection");
 
 // Distributed worker mode
 const { HeartbeatRelayService } = require("./services/heartbeat-relay");
@@ -863,6 +863,20 @@ let needSetup = false;
 
                 bean.validate();
 
+                // SSRF Protection: Validate URLs and hostnames
+                if (monitor.url) {
+                    const urlCheck = await validateURL(monitor.url);
+                    if (!urlCheck.valid) {
+                        throw new Error(`URL validation failed: ${urlCheck.reason}`);
+                    }
+                }
+                if (monitor.hostname) {
+                    const hostCheck = await validateHostname(monitor.hostname);
+                    if (!hostCheck.valid) {
+                        throw new Error(`Hostname validation failed: ${hostCheck.reason}`);
+                    }
+                }
+
                 await R.store(bean);
 
                 // For PostgreSQL, bean.id might not be set after store - fetch it
@@ -1080,6 +1094,20 @@ let needSetup = false;
                 bean.ping_per_request_timeout = monitor.ping_per_request_timeout;
 
                 bean.validate();
+
+                // SSRF Protection: Validate URLs and hostnames
+                if (monitor.url) {
+                    const urlCheck = await validateURL(monitor.url);
+                    if (!urlCheck.valid) {
+                        throw new Error(`URL validation failed: ${urlCheck.reason}`);
+                    }
+                }
+                if (monitor.hostname) {
+                    const hostCheck = await validateHostname(monitor.hostname);
+                    if (!hostCheck.valid) {
+                        throw new Error(`Hostname validation failed: ${hostCheck.reason}`);
+                    }
+                }
 
                 await R.store(bean);
 
@@ -1903,10 +1931,8 @@ let needSetup = false;
         cloudflaredSocketHandler(socket);
         databaseSocketHandler(socket);
         proxySocketHandler(socket);
-        dockerSocketHandler(socket);
         maintenanceSocketHandler(socket);
         apiKeySocketHandler(socket);
-        remoteBrowserSocketHandler(socket);
         generalSocketHandler(socket, server);
         chartSocketHandler(socket);
         registrationSocketHandler(socket, server);

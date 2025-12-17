@@ -17,7 +17,6 @@ import Entry from "./pages/Entry.vue";
 import ManageStatusPage from "./pages/ManageStatusPage.vue";
 import AddStatusPage from "./pages/AddStatusPage.vue";
 import NotFound from "./pages/NotFound.vue";
-import DockerHosts from "./components/settings/Docker.vue";
 import MaintenanceDetails from "./pages/MaintenanceDetails.vue";
 import ManageMaintenance from "./pages/ManageMaintenance.vue";
 import APIKeys from "./components/settings/APIKeys.vue";
@@ -27,13 +26,10 @@ import SetupDatabase from "./pages/SetupDatabase.vue";
 import Appearance from "./components/settings/Appearance.vue";
 import General from "./components/settings/General.vue";
 const Notifications = () => import("./components/settings/Notifications.vue");
-import ReverseProxy from "./components/settings/ReverseProxy.vue";
 import Tags from "./components/settings/Tags.vue";
 import MonitorHistory from "./components/settings/MonitorHistory.vue";
 const Security = () => import("./components/settings/Security.vue");
-import Proxies from "./components/settings/Proxies.vue";
 import About from "./components/settings/About.vue";
-import RemoteBrowsers from "./components/settings/RemoteBrowsers.vue";
 import Team from "./components/settings/Team.vue";
 import Organization from "./components/settings/Organization.vue";
 import Plans from "./components/settings/Plans.vue";
@@ -107,10 +103,6 @@ const routes = [
                                 component: Notifications,
                             },
                             {
-                                path: "reverse-proxy",
-                                component: ReverseProxy,
-                            },
-                            {
                                 path: "tags",
                                 component: Tags,
                             },
@@ -119,24 +111,12 @@ const routes = [
                                 component: MonitorHistory,
                             },
                             {
-                                path: "docker-hosts",
-                                component: DockerHosts,
-                            },
-                            {
-                                path: "remote-browsers",
-                                component: RemoteBrowsers,
-                            },
-                            {
                                 path: "security",
                                 component: Security,
                             },
                             {
                                 path: "api-keys",
                                 component: APIKeys,
-                            },
-                            {
-                                path: "proxies",
-                                component: Proxies,
                             },
                             {
                                 path: "team",

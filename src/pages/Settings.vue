@@ -109,20 +109,11 @@ export default {
                 notifications: {
                     title: this.$t("Notifications"),
                 },
-                "reverse-proxy": {
-                    title: this.$t("Reverse Proxy"),
-                },
                 tags: {
                     title: this.$t("Tags"),
                 },
                 "monitor-history": {
                     title: this.$t("Monitor History"),
-                },
-                "docker-hosts": {
-                    title: this.$t("Docker Hosts"),
-                },
-                "remote-browsers": {
-                    title: this.$t("Remote Browsers"),
                 },
                 security: {
                     title: this.$t("Security"),
@@ -138,9 +129,6 @@ export default {
                 },
                 "plan-status": {
                     title: this.$t("Plan & Usage"),
-                },
-                proxies: {
-                    title: this.$t("Proxies"),
                 },
                 about: {
                     title: this.$t("About"),
