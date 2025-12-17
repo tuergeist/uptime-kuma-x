@@ -1,3 +1,4 @@
+import UptimeHiveEmail from "./UptimeHiveEmail.vue";
 import Alerta from "./Alerta.vue";
 import AlertNow from "./AlertNow.vue";
 import AliyunSMS from "./AliyunSms.vue";
@@ -87,6 +88,7 @@ import Webpush from "./Webpush.vue";
  * @type { Record<string, any> }
  */
 const NotificationFormList = {
+    "uptimehive-email": UptimeHiveEmail,
     "alerta": Alerta,
     "AlertNow": AlertNow,
     "AliyunSMS": AliyunSMS,

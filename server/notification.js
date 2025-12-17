@@ -1,5 +1,6 @@
 const { R } = require("redbean-node");
 const { log } = require("../src/util");
+const UptimeHiveEmail = require("./notification-providers/uptimehive-email");
 const Alerta = require("./notification-providers/alerta");
 const AlertNow = require("./notification-providers/alertnow");
 const AliyunSms = require("./notification-providers/aliyun-sms");
@@ -100,6 +101,7 @@ class Notification {
         this.providerList = {};
 
         const list = [
+            new UptimeHiveEmail(),
             new Alerta(),
             new AlertNow(),
             new AliyunSms(),

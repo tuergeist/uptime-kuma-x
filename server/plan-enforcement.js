@@ -234,6 +234,106 @@ function createLimitError(limitType, current, limit) {
     };
 }
 
+/**
+ * Check if tenant can send more emails today
+ * @param {number} tenantId - The tenant ID
+ * @returns {Promise<object>} { allowed: boolean, current: number, limit: number|null, remaining: number|null }
+ */
+async function checkEmailLimit(tenantId) {
+    const plan = await getTenantPlan(tenantId);
+    const limit = plan?.email_limit_daily ?? 50; // Default to free plan limit
+
+    // NULL limit means unlimited
+    if (limit === null) {
+        return {
+            allowed: true,
+            current: 0,
+            limit: null,
+            remaining: null,
+        };
+    }
+
+    // Get current email count for today
+    const today = new Date().toISOString().split("T")[0];
+    const tenant = await R.getRow(
+        "SELECT email_count_date, email_count_today FROM tenant WHERE id = ?",
+        [ tenantId ]
+    );
+
+    let current = 0;
+    if (tenant && tenant.email_count_date === today) {
+        current = tenant.email_count_today || 0;
+    }
+
+    return {
+        allowed: current < limit,
+        current,
+        limit,
+        remaining: limit - current,
+    };
+}
+
+/**
+ * Increment email count for tenant (call after sending email)
+ * @param {number} tenantId - The tenant ID
+ * @returns {Promise<void>}
+ */
+async function incrementEmailCount(tenantId) {
+    const today = new Date().toISOString().split("T")[0];
+
+    // Check if we need to reset the counter (new day)
+    const tenant = await R.getRow(
+        "SELECT email_count_date, email_count_today FROM tenant WHERE id = ?",
+        [ tenantId ]
+    );
+
+    if (tenant && tenant.email_count_date === today) {
+        // Same day, increment
+        await R.exec(
+            "UPDATE tenant SET email_count_today = email_count_today + 1 WHERE id = ?",
+            [ tenantId ]
+        );
+    } else {
+        // New day, reset to 1
+        await R.exec(
+            "UPDATE tenant SET email_count_date = ?, email_count_today = 1 WHERE id = ?",
+            [ today, tenantId ]
+        );
+    }
+}
+
+/**
+ * Get email usage for display in plan status
+ * @param {number} tenantId - The tenant ID
+ * @returns {Promise<object>} { sent: number, limit: number|null, resetTime: string }
+ */
+async function getEmailUsage(tenantId) {
+    const plan = await getTenantPlan(tenantId);
+    const limit = plan?.email_limit_daily ?? 50;
+
+    const today = new Date().toISOString().split("T")[0];
+    const tenant = await R.getRow(
+        "SELECT email_count_date, email_count_today FROM tenant WHERE id = ?",
+        [ tenantId ]
+    );
+
+    let sent = 0;
+    if (tenant && tenant.email_count_date === today) {
+        sent = tenant.email_count_today || 0;
+    }
+
+    // Calculate reset time (midnight UTC)
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+
+    return {
+        sent,
+        limit,
+        resetTime: tomorrow.toISOString(),
+    };
+}
+
 module.exports = {
     getTenantPlan,
     getTenantUsage,
@@ -245,4 +345,7 @@ module.exports = {
     enforceMinInterval,
     getRetentionDays,
     createLimitError,
+    checkEmailLimit,
+    incrementEmailCount,
+    getEmailUsage,
 };
