@@ -44,6 +44,9 @@ spec:
                 name: uptime-kuma-config
             - secretRef:
                 name: uptime-kuma-secrets
+            - secretRef:
+                name: ses-smtp-secrets
+                optional: true
           env:
             # Enable distributed mode - workers execute monitors
             - name: DISABLE_BUILTIN_SCHEDULER

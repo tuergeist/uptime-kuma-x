@@ -47,6 +47,14 @@ jobs:
             --from-literal=S3_PREFIX="staging" \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Create/Update SES SMTP secrets
+        run: |
+          kubectl create secret generic ses-smtp-secrets \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=AWS_SES_SMTP_USER="${{ secrets.AWS_SES_SMTP_USER }}" \
+            --from-literal=AWS_SES_SMTP_PASS="${{ secrets.AWS_SES_SMTP_PASS }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Run pre-deployment backup
         run: |
           echo "Creating pre-deployment backup..."
